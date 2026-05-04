@@ -33,6 +33,9 @@
         .subject-tag { padding: 4px 10px; border-radius: 6px; border: 1px solid #dee2e6; background: #f8fafc; font-size: 0.8rem; cursor: pointer; }
         .subject-tag.active { background: var(--accent); color: white; border-color: var(--accent); }
 
+        #form-subject-wrap label { display: flex; align-items: center; gap: 8px; padding: 5px 4px; cursor: pointer; font-size: 0.9rem; color: var(--text); }
+        #form-subject-wrap input[type="checkbox"] { flex-shrink: 0; }
+
         /* 카드 그리드 및 드래그 스타일 */
         .posts-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin: 20px 0 50px 0; }
         @media (min-width: 640px) { .posts-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -130,7 +133,8 @@
                 </select>
             </div>
             <label id="form-subject-label">과목 선택</label>
-            <select id="form-subject"></select>
+            <div id="form-subject-wrap" style="max-height:160px;overflow-y:auto;border:1px solid #dee2e6;border-radius:8px;padding:8px;margin-top:6px;background:#fafafa;"></div>
+            <p style="font-size:12px;color:#64748b;margin:6px 0 0 0;">복수 선택 가능합니다.</p>
             <label>링크 (URL)</label><input type="url" id="form-url">
             <label>내용</label><textarea id="form-desc" rows="5"></textarea>
             <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -237,24 +241,55 @@
             return String(a.name || '').localeCompare(String(b.name || ''), 'ko');
         });
     }
-    function renderFormSubjectOptions(selectedValue) {
+    function getPostSubjectsList(post) {
+        if (!post) return [];
+        if (Array.isArray(post.subjects) && post.subjects.length) {
+            return post.subjects.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
+        }
+        const s = String(post.subject || '').trim();
+        if (!s) return [];
+        if (s.indexOf(',') >= 0) return s.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+        return [s];
+    }
+    function getCheckedFormSubjectsFromDom() {
+        const wrap = document.getElementById('form-subject-wrap');
+        if (!wrap) return [];
+        return Array.prototype.map.call(wrap.querySelectorAll('input[type="checkbox"][name="form-subject-cb"]:checked'), function (cb) { return cb.value; }).filter(Boolean);
+    }
+    function normalizeFormSubjectSelection(selectedValues) {
+        if (selectedValues === undefined) return null;
+        if (selectedValues == null || selectedValues === '') return [];
+        if (Array.isArray(selectedValues)) {
+            return selectedValues.map(function (s) { return String(s || '').trim(); }).filter(Boolean);
+        }
+        return [String(selectedValues).trim()].filter(Boolean);
+    }
+    function renderFormSubjectOptions(selectedValues) {
         const catEl = document.getElementById('form-category');
         const labelEl = document.getElementById('form-subject-label');
-        const select = document.getElementById('form-subject');
-        if (!catEl || !labelEl || !select) return;
+        const wrap = document.getElementById('form-subject-wrap');
+        if (!catEl || !labelEl || !wrap) return;
         const cat = String(catEl.value || '').trim();
         const mode = getFormOptionMode(cat);
         labelEl.textContent = (mode === 'subject') ? '과목 선택' : '구분 선택';
         const list = getFormOptionList(cat);
-        const keep = selectedValue != null ? String(selectedValue) : String(select.value || '');
-        select.innerHTML = `<option value="">미지정</option>`;
+        const normalized = normalizeFormSubjectSelection(selectedValues);
+        const selectedSet = {};
+        (normalized === null ? getCheckedFormSubjectsFromDom() : normalized).forEach(function (n) { selectedSet[n] = true; });
+        wrap.innerHTML = '';
+        const frag = document.createDocumentFragment();
         list.forEach(function (item) {
-            const opt = document.createElement('option');
-            opt.value = item.name;
-            opt.innerText = item.name;
-            select.appendChild(opt);
+            const lab = document.createElement('label');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.name = 'form-subject-cb';
+            cb.value = item.name;
+            if (selectedSet[item.name]) cb.checked = true;
+            lab.appendChild(cb);
+            lab.appendChild(document.createTextNode(item.name));
+            frag.appendChild(lab);
         });
-        if (keep) select.value = keep;
+        wrap.appendChild(frag);
     }
     function updateAdminListToolUi() {
         const input = document.getElementById('new-subject-name');
@@ -387,10 +422,12 @@
                 currentCat === 'all' ||
                 p.category === currentCat ||
                 (currentCat === '안내사항' && p.category === '행사자료');
-            const matchSub = !isTopOptionFilterEnabled() || currentSub === 'all' || p.subject === currentSub;
+            const subList = getPostSubjectsList(p);
+            const matchSub = !isTopOptionFilterEnabled() || currentSub === 'all' || subList.indexOf(currentSub) >= 0;
             const q = String(currentSearch || '').trim().toLowerCase();
             const haystack = [
-                String(p.subject || ''),         // 과목/구분
+                subList.join(' '),
+                String(p.subject || ''),         // 과목/구분(단일·콤마 호환)
                 String(p.material_type || ''),   // 수업자료 구분(PPT/학습자료/평가/기타)
                 String(p.title || ''),           // 제목
                 String(p.description || '')      // 내용
@@ -419,7 +456,7 @@
 
             card.innerHTML = `
                 <div class="card-content">
-                    <span style="font-size:0.7rem; color:var(--accent); font-weight:bold;">#${post.category === '행사자료' ? '안내사항' : post.category}${post.category === '수업자료' ? ' · ' + (post.material_type || '기타') : ''} | ${post.subject || '공통'}</span>
+                    <span style="font-size:0.7rem; color:var(--accent); font-weight:bold;">#${post.category === '행사자료' ? '안내사항' : post.category}${post.category === '수업자료' ? ' · ' + (post.material_type || '기타') : ''} | ${getPostSubjectsList(post).join(', ') || '공통'}</span>
                     <h3 style="margin:5px 0;">${post.title}</h3>
                     ${children.length > 0 ? `<span style="font-size:0.7rem; color:#64748b;">📦 포함된 자료: ${children.length}개</span>` : ''}
                 </div>
@@ -524,13 +561,16 @@ window.showTextDetail = (id) => {
         e.preventDefault();
         const user = auth.currentUser;
         const editId = document.getElementById('edit-id').value;
+        const subjects = Array.prototype.map.call(document.querySelectorAll('#form-subject-wrap input[name="form-subject-cb"]:checked'), function (x) { return x.value; }).filter(Boolean);
+        const subject = subjects.length ? subjects.join(', ') : '';
         const data = {
             title: document.getElementById('form-title').value,
             category: document.getElementById('form-category').value,
             material_type: (document.getElementById('form-category').value === '수업자료')
                 ? (document.getElementById('form-material-type').value || '기타')
                 : "",
-            subject: document.getElementById('form-subject').value,
+            subjects: subjects,
+            subject: subject,
             link_url: document.getElementById('form-url').value,
             description: document.getElementById('form-desc').value,
             status: (user.email === ADMIN_EMAIL) ? "approved" : "pending",
@@ -589,7 +629,7 @@ window.openEditModal = (id) => {
     document.getElementById('form-category').value = post.category;
     document.getElementById('form-material-type').value = (post.material_type || '기타');
     if (typeof toggleMaterialTypeField === 'function') toggleMaterialTypeField();
-    renderFormSubjectOptions(post.subject || "");
+    renderFormSubjectOptions(getPostSubjectsList(post));
     document.getElementById('form-url').value = post.link_url || "";
     document.getElementById('form-desc').value = post.description || "";
     
@@ -626,7 +666,7 @@ window.openEditModal = (id) => {
         document.getElementById('resource-form').reset(); 
         const mt = document.getElementById('form-material-type');
         if (mt) mt.value = 'PPT';
-        renderFormSubjectOptions("");
+        renderFormSubjectOptions([]);
         if (typeof toggleMaterialTypeField === 'function') toggleMaterialTypeField();
         document.getElementById('form-modal').classList.remove('hidden'); 
     };
