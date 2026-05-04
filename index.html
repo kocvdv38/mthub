@@ -188,7 +188,12 @@
             currentCat === '행사자료' ? 'eventGroups' :
             'subjects';
         await addDoc(collection(db, col), { name, created_at: serverTimestamp() });
+        if (col === 'classGroups' && !allClassGroups.some(x => String(x.name || '') === name)) allClassGroups.push({ name });
+        if (col === 'eventGroups' && !allEventGroups.some(x => String(x.name || '') === name)) allEventGroups.push({ name });
+        if (col === 'subjects' && !allSubjects.some(x => String(x.name || '') === name)) allSubjects.push({ name });
         document.getElementById('new-subject-name').value = "";
+        renderSubjects();
+        render();
     };
     function getFormOptionMode(category) {
         const c = String(category || '').trim();
@@ -230,24 +235,35 @@
         else input.placeholder = '새 과목 추가...';
     }
 
-    function isSubjectFilterEnabled() {
-        return currentCat === '수업자료' || currentCat === '문제해결';
+    function isTopOptionFilterEnabled() {
+        return currentCat === '수업자료' || currentCat === '문제해결' || currentCat === '학급운영' || currentCat === '행사자료';
+    }
+    function getTopOptionLabel() {
+        return (currentCat === '학급운영' || currentCat === '행사자료') ? '구분' : '과목';
+    }
+    function getTopOptionList() {
+        if (currentCat === '학급운영') return allClassGroups.slice();
+        if (currentCat === '행사자료') return allEventGroups.slice();
+        return allSubjects.slice();
     }
     function renderSubjects() {
         const list = document.getElementById('subject-list');
-        const enabled = isSubjectFilterEnabled();
+        const enabled = isTopOptionFilterEnabled();
         list.style.display = enabled ? 'flex' : 'none';
-        list.innerHTML = `<span style="font-size:0.8rem; font-weight:bold; color:#64748b;">과목: </span><button class="subject-tag ${currentSub === 'all' ? 'active' : ''}" onclick="filterBySub('all')">전체</button>`;
-        const sortedSubjects = allSubjects.slice().sort(function (a, b) {
+        list.innerHTML = `<span style="font-size:0.8rem; font-weight:bold; color:#64748b;">${getTopOptionLabel()}: </span><button class="subject-tag ${currentSub === 'all' ? 'active' : ''}" onclick="filterBySub('all')">전체</button>`;
+        const sortedSubjects = getTopOptionList().sort(function (a, b) {
             return String(a.name || '').localeCompare(String(b.name || ''), 'ko');
         });
+        const validNames = {};
         sortedSubjects.forEach(sub => {
+            validNames[String(sub.name)] = true;
             const btn = document.createElement('button');
             btn.className = `subject-tag ${currentSub === sub.name ? 'active' : ''}`;
             btn.innerText = sub.name;
             btn.onclick = () => filterBySub(sub.name);
             list.appendChild(btn);
         });
+        if (currentSub !== 'all' && !validNames[currentSub]) currentSub = 'all';
         renderFormSubjectOptions();
     }
     window.filterBySub = (name) => { currentSub = name; renderSubjects(); render(); };
@@ -302,7 +318,7 @@
         let filtered = allPosts.filter(p => {
             if (currentCat === 'pending') return p.status === 'pending';
             const matchCat = currentCat === 'all' || p.category === currentCat;
-            const matchSub = !isSubjectFilterEnabled() || currentSub === 'all' || p.subject === currentSub;
+            const matchSub = !isTopOptionFilterEnabled() || currentSub === 'all' || p.subject === currentSub;
             const q = String(currentSearch || '').trim().toLowerCase();
             const haystack = [
                 String(p.subject || ''),         // 과목/구분
