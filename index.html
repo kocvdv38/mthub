@@ -280,22 +280,27 @@
         });
     }
 
+// --- 카드 클릭 시 (상세 보기 또는 묶음 열기) ---
 window.handleCardClick = (id) => {
     const isAdmin = auth.currentUser?.email === ADMIN_EMAIL;
-    const children = allPosts.filter(p => p.parentId === post.id); // 자식 자료 확인
+    // 1. 클릭한 카드(부모) 데이터 찾기 (이 줄이 누락되어 에러가 났었습니다)
+    const post = allPosts.find(p => p.id === id);
+    if (!post) return;
+
+    // 2. 해당 카드를 부모로 가진 자식들 찾기 및 정렬
     const children = allPosts.filter(p => p.parentId === id).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     
     if (children.length > 0) {
         const list = document.getElementById('group-items-list');
         list.innerHTML = '';
         
-        // 묶음 헤더 (이제 여기에는 수정 버튼이 필요 없으므로 제목만 표시합니다)
+        // 묶음 헤더 표시
         const groupHeader = document.createElement('div');
         groupHeader.style = "margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #eee;";
         groupHeader.innerHTML = `<strong style="font-size: 1.1rem; color: var(--primary);">📦 묶음: ${post.title}</strong>`;
         list.appendChild(groupHeader);
 
-        // 부모(본인)와 자식들을 하나의 리스트로 구성
+        // 부모(본인)와 자식들을 합쳐서 리스트 생성
         const itemsToRender = [post, ...children];
         itemsToRender.forEach((item, index) => {
             const div = document.createElement('div');
@@ -317,25 +322,23 @@ window.handleCardClick = (id) => {
                     <span class="sub-item-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.title}</span>
                 </div>
                 <div style="display:flex; gap:4px; flex-shrink:0; margin-left:10px;">
-                    <!-- 각 자료별 수정 버튼 추가 -->
-                    ${isAdmin ? `<button class="btn btn-mini" style="background:var(--warning); color:white;" onclick="document.getElementById('group-modal').classList.add('hidden'); openEditModal('${item.id}')">수정</button>` : ''}
-                    
+                    ${isAdmin ? `<button class="btn btn-mini" style="background:var(--warning); color:white;" onclick="event.stopPropagation(); openEditModal('${item.id}')">수정</button>` : ''}
                     ${item.link_url 
                         ? `<button class="btn btn-mini" style="background:var(--accent); color:white;" onclick="window.open('${item.link_url}','_blank')">열기</button>` 
                         : `<button class="btn btn-mini" style="background:var(--success); color:white;" onclick="showTextDetail('${item.id}')">내용</button>`
                     }
-                    ${isAdmin && item.id !== post.id ? `<button class="btn btn-mini" style="background:#cbd5e1;" onclick="removeFromGroup('${item.id}')">해제</button>` : ''}
+                    ${isAdmin && item.parentId ? `<button class="btn btn-mini" style="background:#cbd5e1;" onclick="removeFromGroup('${item.id}')">해제</button>` : ''}
                 </div>
             `;
             list.appendChild(div);
         });
         document.getElementById('group-modal').classList.remove('hidden');
     } else {
+        // 자식이 없는 일반 카드인 경우
         if (post.link_url) window.open(post.link_url, '_blank');
         else showTextDetail(id);
     }
 };
-
 // 텍스트 상세 내용을 보여주기 위한 보조 함수 (이것도 함께 복사해서 붙여넣어 주세요)
 window.showTextDetail = (id) => {
     const post = allPosts.find(p => p.id === id);
