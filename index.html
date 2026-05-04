@@ -4,72 +4,53 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ME-Link | 기계공학 수업자료 공유</title>
-    
-    <!-- 내부 CSS (Style) -->
     <style>
         :root {
-            --primary: #1e40af; /* 기계공학의 신뢰감을 주는 진한 파랑 */
-            --accent: #3b82f6;
-            --bg: #f1f5f9;
-            --card: #ffffff;
-            --text: #334155;
+            --primary: #1e40af; --accent: #3b82f6; --bg: #f1f5f9;
+            --card: #ffffff; --text: #334155; --admin: #f59e0b;
         }
 
-        body {
-            font-family: 'Pretendard', sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0; padding: 0;
-            line-height: 1.6;
-        }
-
+        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; line-height: 1.6; }
         .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
 
-        /* Header & Nav */
+        /* Header */
         header { background: var(--primary); color: white; padding: 1rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         nav { display: flex; justify-content: space-between; align-items: center; }
-        .logo { font-size: 1.5rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        .logo { font-size: 1.5rem; font-weight: bold; cursor: pointer; }
 
         /* Buttons */
         .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-weight: 500; transition: 0.2s; }
         .btn-login { background: white; color: var(--primary); }
         .btn-submit { background: var(--accent); color: white; }
         .btn-logout { background: transparent; color: white; border: 1px solid white; font-size: 0.8rem; }
-        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn:hover { opacity: 0.9; }
 
-        /* Search & Filter */
+        /* Admin Section */
+        .admin-section { background: #fef3c7; border: 2px dashed var(--admin); padding: 20px; border-radius: 12px; margin-bottom: 30px; }
+        .admin-card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+
+        /* Main UI */
         .search-section { background: white; padding: 2rem 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 2rem; }
         .filter-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 1rem; }
-        .filter-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-size: 0.9rem; }
-        .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .filter-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid #cbd5e1; background: white; cursor: pointer; }
+        .filter-btn.active { background: var(--primary); color: white; }
 
         input[type="text"] { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
 
-        /* Grid & Cards */
         .posts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
-        .card { 
-            background: var(--card); border-radius: 12px; overflow: hidden; 
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: 0.3s;
-            display: flex; flex-direction: column;
-        }
-        .card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-        .card-content { padding: 20px; flex-grow: 1; }
-        .card-tag { font-size: 0.75rem; color: var(--accent); font-weight: bold; text-transform: uppercase; }
-        .card-title { font-size: 1.2rem; margin: 10px 0; font-weight: 700; color: #1e293b; }
-        .card-desc { font-size: 0.9rem; color: #64748b; margin-bottom: 15px; }
-        .card-footer { padding: 15px 20px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
+        .card { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.3s; cursor: pointer; }
+        .card:hover { transform: translateY(-5px); }
+        .card-content { padding: 20px; }
+        .card-footer { padding: 15px 20px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; }
 
-        .icon-box { font-size: 1.5rem; }
         .hidden { display: none !important; }
 
-        /* Modal / Form Styling */
+        /* Modal */
         #submit-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 500px; }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
-        select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
-
-        @media (max-width: 600px) { .posts-grid { grid-template-columns: 1fr; } }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
     </style>
 </head>
 <body>
@@ -87,9 +68,19 @@
     </nav>
 </header>
 
+<!-- 관리자 전용 영역 (평소엔 hidden) -->
+<div id="admin-panel" class="container hidden" style="margin-top: 20px;">
+    <div class="admin-section">
+        <h2 style="color: var(--admin); margin-top: 0;">🛠️ 관리자 승인 대기 목록</h2>
+        <div id="pending-container">
+            <p>대기 중인 자료가 없습니다.</p>
+        </div>
+    </div>
+</div>
+
 <section class="search-section">
     <div class="container">
-        <input type="text" id="search-input" placeholder="관심 있는 수업 자료를 검색해 보세요 (예: 밀링, 선반, 수행평가)">
+        <input type="text" id="search-input" placeholder="관심 있는 수업 자료를 검색해 보세요...">
         <div class="filter-group" id="category-filters">
             <button class="filter-btn active" data-cat="all">전체</button>
             <button class="filter-btn" data-cat="학급운영">학급운영</button>
@@ -102,38 +93,23 @@
 </section>
 
 <main class="container">
-    <div id="posts-container" class="posts-grid">
-        <!-- 자료 카드가 여기 생성됩니다 -->
-    </div>
+    <div id="posts-container" class="posts-grid"></div>
 </main>
 
-<!-- 자료 등록 모달 (평소엔 hidden) -->
+<!-- 등록 모달 -->
 <div id="submit-modal" class="hidden">
     <div class="modal-content">
         <h3>새 수업자료 등록 신청</h3>
         <form id="resource-form">
-            <div class="form-group">
-                <label>자료 제목</label>
-                <input type="text" id="form-title" required placeholder="제목을 입력하세요">
-            </div>
+            <div class="form-group"><label>제목</label><input type="text" id="form-title" required></div>
             <div class="form-group">
                 <label>카테고리</label>
                 <select id="form-category">
-                    <option>수업자료</option>
-                    <option>학급운영</option>
-                    <option>수업TIP</option>
-                    <option>문제해결</option>
-                    <option>행사자료</option>
+                    <option>수업자료</option><option>학급운영</option><option>수업TIP</option><option>문제해결</option><option>행사자료</option>
                 </select>
             </div>
-            <div class="form-group">
-                <label>링크 (Google Docs, YouTube 등)</label>
-                <input type="url" id="form-url" required placeholder="https://...">
-            </div>
-            <div class="form-group">
-                <label>간략 설명</label>
-                <textarea id="form-desc" rows="3"></textarea>
-            </div>
+            <div class="form-group"><label>링크 (URL)</label><input type="url" id="form-url" required></div>
+            <div class="form-group"><label>설명</label><textarea id="form-desc" rows="3"></textarea></div>
             <div style="display: flex; gap: 10px; margin-top: 20px;">
                 <button type="submit" class="btn btn-submit" style="flex: 2;">등록 신청</button>
                 <button type="button" id="close-modal" class="btn" style="flex: 1; background: #eee;">취소</button>
@@ -142,13 +118,11 @@
     </div>
 </div>
 
-<!-- Firebase SDK (최신버전) -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, query, where, getDocs, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, query, where, getDocs, serverTimestamp, orderBy, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-    // --- [설정] 선생님의 Firebase 설정을 여기에 복사해 넣으세요 ---
     const firebaseConfig = {
   apiKey: "AIzaSyADdq0ZHWBB8okvyE1r9C17AYVXs7ZvE38",
   authDomain: "practice-7ba6a.firebaseapp.com",
@@ -164,111 +138,116 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
+    const ADMIN_EMAIL = 'kocvdv38@gmail.com';
 
-    // --- [상태 관리] ---
     let currentUser = null;
 
-    // --- [UI 요소] ---
-    const loginBtn = document.getElementById('login-btn');
-    const logoutBtn = document.getElementById('logout-btn');
-    const userUi = document.getElementById('user-ui');
-    const submitModal = document.getElementById('submit-modal');
+    // UI 요소
+    const adminPanel = document.getElementById('admin-panel');
+    const pendingContainer = document.getElementById('pending-container');
     const postsContainer = document.getElementById('posts-container');
 
-    // --- [함수: 링크 타입 판별] ---
-    function getLinkType(url) {
-        if(url.includes('docs.google.com')) return { icon: '📄', label: 'Docs' };
-        if(url.includes('sheets.google.com')) return { icon: '📊', label: 'Sheets' };
-        if(url.includes('drive.google.com')) return { icon: '📁', label: 'Drive' };
-        if(url.includes('youtube.com') || url.includes('youtu.be')) return { icon: '🎥', label: 'Video' };
-        return { icon: '🔗', label: 'Link' };
-    }
-
-    // --- [함수: 데이터 로드] ---
+    // [함수] 데이터 로드 (메인)
     async function fetchPosts() {
-        postsContainer.innerHTML = '<p>데이터를 불러오는 중...</p>';
         const q = query(collection(db, "posts"), where("status", "==", "approved"), orderBy("created_at", "desc"));
         const snapshot = await getDocs(q);
-        
         postsContainer.innerHTML = '';
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            const typeInfo = getLinkType(data.link_url);
-            
+        snapshot.forEach(res => {
+            const data = res.data();
             const card = document.createElement('div');
             card.className = 'card';
             card.innerHTML = `
                 <div class="card-content" onclick="window.open('${data.link_url}', '_blank')">
-                    <div style="display:flex; justify-content:space-between;">
-                        <span class="card-tag">${data.category}</span>
-                        <span class="icon-box">${typeInfo.icon}</span>
-                    </div>
-                    <h3 class="card-title">${data.title}</h3>
-                    <p class="card-desc">${data.description || '설명이 없습니다.'}</p>
+                    <span style="font-size:0.75rem; color:var(--accent);">#${data.category}</span>
+                    <h3 style="margin:8px 0;">${data.title}</h3>
+                    <p style="font-size:0.9rem; color:#64748b;">${data.description}</p>
                 </div>
                 <div class="card-footer">
                     <span style="font-size:0.8rem; color:#94a3b8;">by ${data.author.split('@')[0]}</span>
-                    <button class="btn" style="font-size:0.8rem; background:#e2e8f0;" onclick="copyLink('${data.link_url}')">🔗 복사</button>
+                    <button class="btn" style="font-size:0.7rem; background:#e2e8f0;" onclick="event.stopPropagation(); copyLink('${data.link_url}')">🔗 링크복사</button>
                 </div>
             `;
             postsContainer.appendChild(card);
         });
     }
 
-    // --- [이벤트: 로그인/로그아웃] ---
-    loginBtn.onclick = () => signInWithPopup(auth, provider);
-    logoutBtn.onclick = () => signOut(auth);
+    // [함수] 관리자용 대기 목록 로드
+    async function fetchPendingPosts() {
+        const q = query(collection(db, "posts"), where("status", "==", "pending"));
+        const snapshot = await getDocs(q);
+        pendingContainer.innerHTML = snapshot.empty ? '<p>대기 중인 자료가 없습니다.</p>' : '';
+        snapshot.forEach(res => {
+            const data = res.data();
+            const div = document.createElement('div');
+            div.className = 'admin-card';
+            div.innerHTML = `
+                <div>
+                    <strong>${data.title}</strong> (${data.author})<br>
+                    <small><a href="${data.link_url}" target="_blank">링크 확인</a></small>
+                </div>
+                <div>
+                    <button class="btn" style="background:#10b981; color:white;" onclick="updateStatus('${res.id}', 'approved')">승인</button>
+                    <button class="btn" style="background:#ef4444; color:white;" onclick="updateStatus('${res.id}', 'rejected')">거절</button>
+                </div>
+            `;
+            pendingContainer.appendChild(div);
+        });
+    }
 
+    // [전역 함수] 승인/거절 처리
+    window.updateStatus = async (id, status) => {
+        if (status === 'rejected') {
+            if (confirm('삭제하시겠습니까?')) await deleteDoc(doc(db, "posts", id));
+        } else {
+            await updateDoc(doc(db, "posts", id), { status: 'approved' });
+            alert('승인되었습니다!');
+        }
+        location.reload();
+    };
+
+    // [이벤트] 로그인 상태 감시
     onAuthStateChanged(auth, (user) => {
         currentUser = user;
         if (user) {
-            loginBtn.classList.add('hidden');
-            userUi.classList.remove('hidden');
+            document.getElementById('login-btn').classList.add('hidden');
+            document.getElementById('user-ui').classList.remove('hidden');
+            // 관리자면 관리자 패널 보여주기
+            if (user.email === ADMIN_EMAIL) {
+                adminPanel.classList.remove('hidden');
+                fetchPendingPosts();
+            }
         } else {
-            loginBtn.classList.remove('hidden');
-            userUi.classList.add('hidden');
+            document.getElementById('login-btn').classList.remove('hidden');
+            document.getElementById('user-ui').classList.add('hidden');
+            adminPanel.classList.add('hidden');
         }
-        fetchPosts(); // 로그인 상태 확인 후 글 목록 새로고침
+        fetchPosts();
     });
 
-    // --- [이벤트: 모달 제어] ---
-    document.getElementById('open-submit-btn').onclick = () => submitModal.classList.remove('hidden');
-    document.getElementById('close-modal').onclick = () => submitModal.classList.add('hidden');
+    // 기타 이벤트 (로그인, 로그아웃, 모달)
+    document.getElementById('login-btn').onclick = () => signInWithPopup(auth, provider);
+    document.getElementById('logout-btn').onclick = () => signOut(auth);
+    document.getElementById('open-submit-btn').onclick = () => document.getElementById('submit-modal').classList.remove('hidden');
+    document.getElementById('close-modal').onclick = () => document.getElementById('submit-modal').classList.add('hidden');
 
-    // --- [이벤트: 자료 제출] ---
+    // [이벤트] 자료 제출
     document.getElementById('resource-form').onsubmit = async (e) => {
         e.preventDefault();
-        if(!currentUser) return alert('로그인이 필요합니다.');
-
         const newPost = {
             title: document.getElementById('form-title').value,
             category: document.getElementById('form-category').value,
             link_url: document.getElementById('form-url').value,
             description: document.getElementById('form-desc').value,
             author: currentUser.email,
-            status: "pending", // 기본값은 대기중
-            likes: 0,
+            status: "pending",
             created_at: serverTimestamp()
         };
-
-        try {
-            await addDoc(collection(db, "posts"), newPost);
-            alert('신청 완료! 관리자 승인 후 목록에 나타납니다.');
-            submitModal.classList.add('hidden');
-            e.target.reset();
-        } catch (err) {
-            alert('오류가 발생했습니다: ' + err.message);
-        }
+        await addDoc(collection(db, "posts"), newPost);
+        alert('등록 신청 완료! 관리자 승인 후 게시됩니다.');
+        location.reload();
     };
 
-    // 링크 복사 함수 (전역 window객체에 할당해야 HTML에서 호출 가능)
-    window.copyLink = (url) => {
-        navigator.clipboard.writeText(url);
-        alert('링크가 복사되었습니다!');
-    };
-
-    // 초기 실행
-    fetchPosts();
+    window.copyLink = (url) => { navigator.clipboard.writeText(url); alert('복사되었습니다!'); };
 </script>
 </body>
 </html>
