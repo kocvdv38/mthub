@@ -314,7 +314,7 @@ window.handleCardClick = (id) => {
                 </div>
                 <div style="display:flex; gap:4px; flex-shrink:0; margin-left:10px;">
                     <!-- 각 자료별 수정 버튼 추가 -->
-                    ${isAdmin ? `<button class="btn btn-mini" style="background:var(--warning); color:white;" onclick="openEditModal('${item.id}')">수정</button>` : ''}
+                    ${isAdmin ? `<button class="btn btn-mini" style="background:var(--warning); color:white;" onclick="document.getElementById('group-modal').classList.add('hidden'); openEditModal('${item.id}')">수정</button>` : ''}
                     
                     ${item.link_url 
                         ? `<button class="btn btn-mini" style="background:var(--accent); color:white;" onclick="window.open('${item.link_url}','_blank')">열기</button>` 
