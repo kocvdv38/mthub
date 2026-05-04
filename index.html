@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ME-Link | 카테고리 내 과목 관리</title>
+    <title>ME-Link | 과목 및 자료 묶음 관리</title>
     <style>
         :root {
             --primary: #1e40af; --accent: #3b82f6; --bg: #f1f5f9;
             --card: #ffffff; --text: #334155; --admin-color: #ef4444;
-            --success: #10b981; --warning: #f59e0b;
+            --success: #10b981;
         }
 
         body { font-family: 'Pretendard', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; line-height: 1.6; }
@@ -36,11 +36,11 @@
             background: white; cursor: pointer; font-size: 0.8rem; transition: 0.2s;
         }
         .subject-tag.active { background: var(--accent); color: white; border-color: var(--accent); }
-        .subject-tag.drag-over { background: var(--success); color: white; transform: scale(1.05); border-style: dashed; }
+        .subject-tag.drag-over { background: var(--success) !important; color: white !important; transform: scale(1.05); border-style: dashed; }
 
-        .admin-tool { font-size: 0.75rem; color: var(--admin-color); margin-left: auto; display: flex; align-items: center; gap: 5px; }
+        .admin-tool { font-size: 0.75rem; color: var(--admin-color); margin-top: 10px; display: flex; align-items: center; gap: 8px; }
         
-        /* 자료 카드 레이아웃 */
+        /* 자료 카드 및 묶음 스타일 */
         .posts-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin: 20px 0 50px 0; }
         @media (min-width: 640px) { .posts-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (min-width: 1024px) { .posts-grid { grid-template-columns: repeat(3, 1fr); } }
@@ -48,9 +48,21 @@
         .card { 
             background: var(--card); border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
             display: flex; flex-direction: column; border: 1px solid #edf2f7; cursor: grab;
+            transition: transform 0.1s;
         }
         .card.dragging { opacity: 0.4; }
         .card-content { padding: 18px; flex-grow: 1; }
+        
+        /* 자료 묶음(Sub-items) 스타일 복구 */
+        .sub-items-container { margin-top: 10px; border-top: 1px solid #f1f5f9; padding-top: 10px; }
+        .sub-item { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 8px 5px; border-bottom: 1px dashed #eee; font-size: 0.9rem; cursor: pointer;
+        }
+        .sub-item:hover { background: #f8fafc; }
+        .sub-item:last-child { border-bottom: none; }
+        .sub-item-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px; }
+
         .card-footer { padding: 10px 18px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
 
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 10px; }
@@ -76,7 +88,6 @@
     </nav>
 </header>
 
-<!-- 1단계: 고정 카테고리 -->
 <section class="category-section">
     <div class="container">
         <div class="tab-group" id="tab-list">
@@ -90,18 +101,16 @@
     </div>
 </section>
 
-<!-- 2단계: 세부 과목 관리 및 필터 -->
 <section class="subject-section">
     <div class="container">
         <div class="subject-group" id="subject-list">
             <span style="font-size: 0.8rem; font-weight: bold; color: #64748b;">과목: </span>
             <button class="subject-tag active" data-sub="all">전체</button>
-            <!-- 과목 태그들이 여기에 동적으로 추가됨 -->
         </div>
-        <div id="admin-subject-tools" class="hidden admin-tool" style="margin-top: 10px;">
+        <div id="admin-subject-tools" class="hidden admin-tool">
             <input type="text" id="new-subject-name" placeholder="새 과목 추가..." style="width: 150px; padding: 4px;">
             <button onclick="addSubject()" class="btn-mini" style="background:var(--primary); color:white;">추가</button>
-            <span>(자료를 과목 태그로 드래그하여 이동 가능)</span>
+            <span>* 카드 드래그 시 묶음 전체 이동</span>
         </div>
     </div>
 </section>
@@ -110,7 +119,7 @@
     <div id="posts-container" class="posts-grid"></div>
 </main>
 
-<!-- 등록/수정 모달 -->
+<!-- 모달 생략(동일) -->
 <div id="form-modal" class="modal hidden">
     <div class="modal-content">
         <h3>자료 등록/수정</h3>
@@ -135,7 +144,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
     const firebaseConfig = {
@@ -160,25 +169,23 @@
     let draggedPostId = null;
 
     // --- 과목 관리 ---
-    async function addSubject() {
+    window.addSubject = async () => {
         const name = document.getElementById('new-subject-name').value.trim();
         if (!name) return;
         await addDoc(collection(db, "subjects"), { name, created_at: serverTimestamp() });
         document.getElementById('new-subject-name').value = "";
-    }
-    window.addSubject = addSubject;
+    };
 
     window.deleteSubject = async (id) => {
         if (confirm("이 과목을 삭제하시겠습니까?")) await deleteDoc(doc(db, "subjects", id));
     };
 
-    // --- 렌더링 ---
+    // --- 렌더링 로직 ---
     function renderSubjects() {
         const list = document.getElementById('subject-list');
         const select = document.getElementById('form-subject');
         const isAdmin = auth.currentUser?.email === ADMIN_EMAIL;
         
-        // "전체" 태그 제외하고 초기화
         list.innerHTML = `<span style="font-size: 0.8rem; font-weight: bold; color: #64748b;">과목: </span><button class="subject-tag ${currentSub === 'all' ? 'active' : ''}" onclick="filterBySub('all')">전체</button>`;
         select.innerHTML = `<option value="">미지정</option>`;
 
@@ -189,25 +196,27 @@
             tag.onclick = () => filterBySub(sub.name);
             
             if (isAdmin) {
-                // 드래그 앤 드롭 분류 기능
                 tag.ondragover = (e) => { e.preventDefault(); tag.classList.add('drag-over'); };
                 tag.ondragleave = () => tag.classList.remove('drag-over');
                 tag.ondrop = async (e) => {
                     e.preventDefault();
                     tag.classList.remove('drag-over');
                     if (draggedPostId) {
+                        // 부모 과목 변경
                         await updateDoc(doc(db, "posts", draggedPostId), { subject: sub.name, status: "approved" });
+                        // 자식(묶음)들도 자동 이동
+                        const children = allPosts.filter(p => p.parentId === draggedPostId);
+                        for(const child of children) {
+                            await updateDoc(doc(db, "posts", child.id), { subject: sub.name, status: "approved" });
+                        }
                     }
                 };
-                // 삭제 버튼
                 const del = document.createElement('span');
                 del.innerHTML = " ✕";
-                del.style.color = "#ccc";
                 del.onclick = (e) => { e.stopPropagation(); deleteSubject(sub.id); };
                 tag.appendChild(del);
             }
             list.appendChild(tag);
-            
             const opt = document.createElement('option');
             opt.value = sub.name; opt.innerText = sub.name;
             select.appendChild(opt);
@@ -221,27 +230,44 @@
         container.innerHTML = '';
         const isAdmin = auth.currentUser?.email === ADMIN_EMAIL;
 
-        const filtered = allPosts.filter(p => {
+        // 부모(Main) 자료 필터링
+        const mainPosts = allPosts.filter(p => {
             const matchCat = currentCat === 'all' || p.category === currentCat;
             const matchSub = currentSub === 'all' || p.subject === currentSub;
-            return matchCat && matchSub && p.status === 'approved';
+            return matchCat && matchSub && p.status === 'approved' && !p.parentId;
         });
 
-        filtered.forEach(post => {
+        mainPosts.forEach(post => {
             const card = document.createElement('div');
             card.className = 'card';
             card.draggable = isAdmin;
             card.ondragstart = () => { draggedPostId = post.id; card.classList.add('dragging'); };
             card.ondragend = () => card.classList.remove('dragging');
-            card.onclick = () => { if(post.link_url) window.open(post.link_url, '_blank'); };
+            
+            // 하위 자료(묶음) 필터링
+            const children = allPosts.filter(p => p.parentId === post.id && p.status === 'approved');
+            
+            let subItemsHtml = '';
+            if (children.length > 0) {
+                subItemsHtml = `<div class="sub-items-container">`;
+                children.forEach(child => {
+                    subItemsHtml += `
+                        <div class="sub-item" onclick="event.stopPropagation(); window.open('${child.link_url}','_blank')">
+                            <span class="sub-item-title">📎 ${child.title}</span>
+                            <span style="font-size:0.7rem; color:#94a3b8;">열기</span>
+                        </div>`;
+                });
+                subItemsHtml += `</div>`;
+            }
 
             card.innerHTML = `
-                <div class="card-content">
+                <div class="card-content" onclick="window.open('${post.link_url}','_blank')">
                     <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
                         <span style="font-size:0.7rem; color:var(--primary); font-weight:bold;">${post.category}</span>
                         <span style="font-size:0.7rem; color:#64748b;">${post.subject || '미지정'}</span>
                     </div>
                     <h3 style="margin:0; font-size:1.05rem;">${post.title}</h3>
+                    ${subItemsHtml}
                 </div>
                 <div class="card-footer">
                     <span style="font-size:0.75rem; color:#94a3b8;">${post.author?.split('@')[0]}</span>
@@ -281,7 +307,7 @@
         renderSubjects(); renderPosts();
     });
 
-    // --- 폼 처리 ---
+    // --- 폼 처리 및 기타 유틸 ---
     document.getElementById('resource-form').onsubmit = async (e) => {
         e.preventDefault();
         const user = auth.currentUser;
