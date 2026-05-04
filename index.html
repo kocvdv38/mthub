@@ -33,54 +33,82 @@
         .subject-tag { padding: 4px 10px; border-radius: 6px; border: 1px solid #dee2e6; background: #f8fafc; font-size: 0.8rem; cursor: pointer; }
         .subject-tag.active { background: var(--accent); color: white; border-color: var(--accent); }
 
-        /* 체크박스·라디오는 전역 width:100% 제외 (과목/구분 다중선택 UI 깨짐 방지) */
-        input:not([type="checkbox"]):not([type="radio"]), select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; margin-top: 5px; font-size: 16px; }
-        #form-subject-wrap {
+        /* 체크박스·라디오·hidden은 전역 폼 너비 스타일 제외 */
+        input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; margin-top: 5px; font-size: 16px; }
+
+        #resource-form .form-field-label {
+            display: block;
+            margin-top: 12px;
+            margin-bottom: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        #resource-form #form-subject-wrap {
             display: flex;
             flex-direction: column;
             align-items: stretch;
-            gap: 2px;
-            max-height: 160px;
+            gap: 0;
+            max-height: 200px;
             overflow-x: hidden;
             overflow-y: auto;
             border: 1px solid #dee2e6;
             border-radius: 8px;
-            padding: 8px 10px;
-            margin-top: 6px;
+            padding: 6px 4px;
+            margin-top: 4px;
             background: #fafafa;
             box-sizing: border-box;
             min-width: 0;
+            width: 100%;
         }
-        #form-subject-wrap label {
+        #resource-form #form-subject-wrap .form-subject-row {
             display: flex;
             flex-direction: row;
             align-items: flex-start;
             gap: 10px;
-            padding: 8px 4px;
-            cursor: pointer;
-            font-size: 0.95rem;
-            color: var(--text);
+            padding: 8px 8px;
+            margin: 0;
             width: 100%;
             max-width: 100%;
-            box-sizing: border-box;
             min-width: 0;
+            box-sizing: border-box;
+            border-radius: 6px;
             text-align: left;
         }
-        #form-subject-wrap input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            min-width: 18px;
-            margin: 2px 0 0 0;
-            flex-shrink: 0;
+        #resource-form #form-subject-wrap .form-subject-row:hover {
+            background: rgba(59, 130, 246, 0.07);
+        }
+        #resource-form #form-subject-wrap input[type="checkbox"] {
+            width: 1.125rem !important;
+            height: 1.125rem !important;
+            min-width: 1.125rem !important;
+            max-width: 1.125rem !important;
+            margin: 0.15rem 0 0 0 !important;
+            padding: 0 !important;
+            flex: 0 0 auto;
             cursor: pointer;
             accent-color: var(--accent);
+            box-sizing: border-box;
         }
-        #form-subject-wrap .form-subject-cb-text {
-            flex: 1;
+        #resource-form #form-subject-wrap label.form-subject-cb-text {
+            flex: 1 1 auto;
             min-width: 0;
-            line-height: 1.4;
+            margin: 0;
+            padding: 0;
+            font-size: 0.95rem;
+            font-weight: 400;
+            line-height: 1.45;
+            color: var(--text);
+            cursor: pointer;
             word-break: keep-all;
-            overflow-wrap: break-word;
+            overflow-wrap: anywhere;
+        }
+        #resource-form #form-subject-wrap .form-subject-empty {
+            margin: 0;
+            padding: 12px 10px;
+            font-size: 0.85rem;
+            color: #64748b;
+            line-height: 1.45;
         }
 
         /* 카드 그리드 및 드래그 스타일 */
@@ -178,8 +206,8 @@
                     <option>기타</option>
                 </select>
             </div>
-            <label id="form-subject-label">과목 선택</label>
-            <div id="form-subject-wrap"></div>
+            <div id="form-subject-label" class="form-field-label">과목 선택</div>
+            <div id="form-subject-wrap" aria-labelledby="form-subject-label"></div>
             <p style="font-size:12px;color:#64748b;margin:6px 0 0 0;">복수 선택 가능합니다.</p>
             <label>링크 (URL)</label><input type="url" id="form-url">
             <label>내용</label><textarea id="form-desc" rows="5"></textarea>
@@ -323,20 +351,33 @@
         const selectedSet = {};
         (normalized === null ? getCheckedFormSubjectsFromDom() : normalized).forEach(function (n) { selectedSet[n] = true; });
         wrap.innerHTML = '';
+        if (!list.length) {
+            const empty = document.createElement('p');
+            empty.className = 'form-subject-empty';
+            empty.textContent = (mode === 'subject')
+                ? '등록된 과목이 없습니다. 목록 상단에서 과목을 추가한 뒤 다시 열어 주세요.'
+                : '등록된 구분이 없습니다. 학급운영·안내사항 탭에서 구분을 추가한 뒤 다시 열어 주세요.';
+            wrap.appendChild(empty);
+            return;
+        }
         const frag = document.createDocumentFragment();
-        list.forEach(function (item) {
-            const lab = document.createElement('label');
+        list.forEach(function (item, idx) {
+            const row = document.createElement('div');
+            row.className = 'form-subject-row';
             const cb = document.createElement('input');
+            const cid = 'form-subject-cb-' + String(idx);
+            cb.id = cid;
             cb.type = 'checkbox';
             cb.name = 'form-subject-cb';
             cb.value = item.name;
             if (selectedSet[item.name]) cb.checked = true;
-            const span = document.createElement('span');
-            span.className = 'form-subject-cb-text';
-            span.textContent = String(item.name || '');
-            lab.appendChild(cb);
-            lab.appendChild(span);
-            frag.appendChild(lab);
+            const lbl = document.createElement('label');
+            lbl.className = 'form-subject-cb-text';
+            lbl.htmlFor = cid;
+            lbl.textContent = String(item.name || '');
+            row.appendChild(cb);
+            row.appendChild(lbl);
+            frag.appendChild(row);
         });
         wrap.appendChild(frag);
     }
