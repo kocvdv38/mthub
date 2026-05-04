@@ -51,7 +51,6 @@
         .badge { background: var(--admin-color); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 3px; }
         .hidden { display: none !important; }
         
-        /* 수정 요청 피드백 스타일 */
         .feedback-box { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 10px; border-radius: 8px; font-size: 0.85rem; margin-top: 10px; }
         .status-tag { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; margin-left: 5px; font-weight: bold; }
         .tag-request { background: var(--warning); color: white; }
@@ -80,6 +79,8 @@
             <button class="filter-btn" data-cat="학급운영" data-desc="학급 운영 지원 자료입니다.">학급운영</button>
             <button class="filter-btn" data-cat="수업자료" data-desc="교과별 수업 및 배부용 자료입니다.">수업자료</button>
             <button class="filter-btn" data-cat="수업TIP" data-desc="수업 진행 노하우입니다.">수업TIP</button>
+            <button class="filter-btn" data-cat="문제해결" data-desc="상황별 해결 방법 자료입니다.">문제해결</button>
+            <button class="filter-btn" data-cat="행사자료" data-desc="교내외 행사 준비 및 안내 자료입니다.">행사자료</button>
             <button id="my-posts-btn" class="filter-btn hidden" data-cat="mine" data-desc="내가 등록한 자료의 승인 상태를 확인합니다.">내 자료</button>
             <button id="admin-tab" class="filter-btn hidden" style="border:2px solid var(--admin-color); color:var(--admin-color);" data-cat="pending" data-desc="승인 대기 중인 자료를 검토합니다.">
                 대기<span id="pending-count" class="badge">0</span>
@@ -94,7 +95,6 @@
     <div id="posts-container" class="posts-grid"></div>
 </main>
 
-<!-- 자료 등록/수정 모달 -->
 <div id="form-modal" class="modal hidden">
     <div class="modal-content">
         <h3 id="modal-title" style="margin-top:0;">자료 등록/수정</h3>
@@ -105,21 +105,16 @@
             <input type="hidden" id="edit-id">
             <label style="font-size:0.85rem; font-weight:bold;">메인 카드 제목</label>
             <input type="text" id="form-title" required>
-            
             <label style="font-size:0.85rem; font-weight:bold; margin-top:12px; display:block;">묶음 내부 제목</label>
             <input type="text" id="form-group-title">
-            
             <label style="font-size:0.85rem; font-weight:bold; margin-top:12px; display:block;">카테고리</label>
             <select id="form-category">
                 <option>수업자료</option><option>학급운영</option><option>수업TIP</option><option>문제해결</option><option>행사자료</option>
             </select>
-            
             <label style="font-size:0.85rem; font-weight:bold; margin-top:12px; display:block;">링크 (URL)</label>
             <input type="url" id="form-url">
-            
             <label style="font-size:0.85rem; font-weight:bold; margin-top:12px; display:block;">내용/설명</label>
             <textarea id="form-desc" rows="6"></textarea>
-            
             <div style="display: flex; gap: 10px; margin-top: 25px;">
                 <button type="submit" class="btn btn-submit" style="flex: 1;">자료 제출</button>
                 <button type="button" onclick="closeModal('form-modal')" class="btn" style="flex: 1; background: #eee;">취소</button>
@@ -128,7 +123,7 @@
     </div>
 </div>
 
-<!-- 자료 묶음/텍스트 뷰어 모달 생략 (이전과 동일하게 유지) -->
+<!-- 자료 묶음 및 텍스트 뷰어 모달 -->
 <div id="text-viewer-modal" class="modal hidden"><div class="modal-content"><h3 id="viewer-title"></h3><div id="viewer-content" class="text-content-viewer"></div><button onclick="closeModal('text-viewer-modal')" class="btn" style="width:100%; margin-top:20px; background:#eee;">닫기</button></div></div>
 <div id="group-modal" class="modal hidden"><div class="modal-content"><h3 style="margin-top:0;">자료 묶음</h3><div id="group-items-list"></div><button onclick="closeModal('group-modal')" class="btn" style="width:100%; margin-top:20px; background:#eee;">닫기</button></div></div>
 
@@ -200,27 +195,14 @@
         });
     }
 
-    // 관리자: 수정 요청 기능
     window.requestEdit = async (id) => {
         const reason = prompt("사용자에게 보낼 수정 요청 내용을 입력하세요:");
-        if (reason) {
-            await updateDoc(doc(db, "posts", id), {
-                status: 'request_edit',
-                feedback: reason
-            });
-            alert("수정 요청을 보냈습니다.");
-        }
+        if (reason) await updateDoc(doc(db, "posts", id), { status: 'request_edit', feedback: reason });
     };
 
-    window.approvePost = async (id) => {
-        if(confirm("승인하시겠습니까?")) await updateDoc(doc(db, "posts", id), { status: 'approved', feedback: "" });
-    };
+    window.approvePost = async (id) => { if(confirm("승인하시겠습니까?")) await updateDoc(doc(db, "posts", id), { status: 'approved', feedback: "" }); };
+    window.deletePost = async (id) => { if(confirm("삭제하시겠습니까?")) await deleteDoc(doc(db, "posts", id)); };
 
-    window.deletePost = async (id) => {
-        if(confirm("삭제하시겠습니까?")) await deleteDoc(doc(db, "posts", id));
-    };
-
-    // 공통 로직
     onSnapshot(collection(db, "posts"), (snapshot) => {
         allPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         document.getElementById('pending-count').innerText = allPosts.filter(p => p.status === 'pending').length;
@@ -236,7 +218,6 @@
         render();
     });
 
-    // 폼 제출 (수정 시 status를 다시 pending으로 변경)
     document.getElementById('resource-form').onsubmit = async (e) => {
         e.preventDefault();
         const editId = document.getElementById('edit-id').value;
@@ -246,15 +227,12 @@
             category: document.getElementById('form-category').value,
             link_url: document.getElementById('form-url').value.trim(),
             description: document.getElementById('form-desc').value || "",
-            status: "pending", // 수정 후 다시 제출하면 승인 대기 상태로 변경
+            status: "pending",
             updated_at: serverTimestamp()
         };
-
         if (editId) await updateDoc(doc(db, "posts", editId), data);
         else await addDoc(collection(db, "posts"), { ...data, author: auth.currentUser.email, created_at: serverTimestamp() });
-        
         closeModal('form-modal');
-        alert("자료가 제출되었습니다. 관리자 승인 후 게시됩니다.");
     };
 
     window.openEditModal = (id) => {
@@ -265,21 +243,15 @@
         document.getElementById('form-category').value = post.category;
         document.getElementById('form-url').value = post.link_url || "";
         document.getElementById('form-desc').value = post.description || "";
-        
-        // 수정 요청인 경우 피드백 표시
         const feedbackView = document.getElementById('admin-feedback-view');
         if(post.status === 'request_edit') {
             feedbackView.classList.remove('hidden');
             document.getElementById('feedback-text').innerText = post.feedback;
-        } else {
-            feedbackView.classList.add('hidden');
-        }
-
+        } else { feedbackView.classList.add('hidden'); }
         closeModal('group-modal');
         document.getElementById('form-modal').classList.remove('hidden');
     };
 
-    // 필터 이벤트 바인딩
     document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.onclick = () => {
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -293,17 +265,37 @@
         };
     });
 
-    window.handleCardClick = (id) => { /* 이전과 동일 */ };
-    window.handleSubItemClick = (id) => { /* 이전과 동일 */ };
+    window.handleCardClick = (id) => {
+        const isAdmin = auth.currentUser?.email === ADMIN_EMAIL;
+        const post = allPosts.find(p => p.id === id);
+        const children = allPosts.filter(p => p.parentId === id);
+        if (children.length > 0) {
+            const listContainer = document.getElementById('group-items-list');
+            listContainer.innerHTML = '';
+            [post, ...children].forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'sub-item';
+                div.innerHTML = `<div style="flex-grow:1; font-weight:500;">${item.group_title || item.title}</div><div class="sub-item-btns">${isAdmin ? `<button class="btn btn-mini" style="background:#64748b; color:white;" onclick="openEditModal('${item.id}')">수정</button>` : ''}<button class="btn btn-mini" style="background:var(--accent); color:white;" onclick="handleSubItemClick('${item.id}')">${item.link_url ? '열기' : '본문'}</button></div>`;
+                listContainer.appendChild(div);
+            });
+            document.getElementById('group-modal').classList.remove('hidden');
+        } else { handleSubItemClick(id); }
+    };
+
+    window.handleSubItemClick = (id) => {
+        const post = allPosts.find(p => p.id === id);
+        if (post.link_url) window.open(post.link_url, '_blank');
+        else {
+            document.getElementById('viewer-title').innerText = post.title;
+            document.getElementById('viewer-content').innerText = post.description || "내용 없음";
+            document.getElementById('text-viewer-modal').classList.remove('hidden');
+        }
+    };
+
     window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
     document.getElementById('login-btn').onclick = () => signInWithPopup(auth, provider);
     document.getElementById('logout-btn').onclick = () => signOut(auth);
-    document.getElementById('open-submit-btn').onclick = () => { 
-        document.getElementById('edit-id').value = ""; 
-        document.getElementById('admin-feedback-view').classList.add('hidden');
-        document.getElementById('resource-form').reset(); 
-        document.getElementById('form-modal').classList.remove('hidden'); 
-    };
+    document.getElementById('open-submit-btn').onclick = () => { document.getElementById('edit-id').value = ""; document.getElementById('admin-feedback-view').classList.add('hidden'); document.getElementById('resource-form').reset(); document.getElementById('form-modal').classList.remove('hidden'); };
 </script>
 </body>
 </html>
