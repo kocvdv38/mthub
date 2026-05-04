@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ME-Link | 기계공학 수업자료 공유</title>
     <style>
         :root {
@@ -10,43 +10,54 @@
             --card: #ffffff; --text: #334155; --admin-color: #ef4444;
         }
 
-        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; line-height: 1.6; }
-        .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; line-height: 1.6; -webkit-tap-highlight-color: transparent; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 15px; }
 
-        header { background: var(--primary); color: white; padding: 1rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        header { background: var(--primary); color: white; padding: 0.8rem 0; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         nav { display: flex; justify-content: space-between; align-items: center; }
-        .logo { font-size: 1.5rem; font-weight: bold; cursor: pointer; }
+        .logo { font-size: 1.3rem; font-weight: bold; cursor: pointer; white-space: nowrap; }
 
-        .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-weight: 500; transition: 0.2s; }
+        .btn { padding: 10px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 500; transition: 0.2s; font-size: 0.9rem; }
         .btn-login { background: white; color: var(--primary); }
         .btn-submit { background: var(--accent); color: white; }
-        .btn-logout { background: transparent; color: white; border: 1px solid white; font-size: 0.8rem; }
+        .btn-logout { background: transparent; color: white; border: 1px solid rgba(255,255,255,0.5); font-size: 0.75rem; padding: 6px 10px; }
         
-        .search-section { background: white; padding: 2rem 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 2rem; }
-        .filter-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 1rem; align-items: center; }
-        .filter-btn { padding: 8px 18px; border-radius: 20px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-size: 0.95rem; }
+        .search-section { background: white; padding: 1.5rem 0; border-bottom: 1px solid #e2e8f0; }
+        #search-input { width: 100%; padding: 12px 15px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 1rem; outline: none; box-sizing: border-box; }
+        #search-input:focus { border-color: var(--accent); }
+
+        .filter-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 1rem; }
+        .filter-btn { padding: 8px 14px; border-radius: 20px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-size: 0.85rem; white-space: nowrap; }
         .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
         
-        /* 설명 문구 스타일 */
-        #category-description { font-size: 0.9rem; color: var(--accent); margin-bottom: 4px; font-weight: 500; min-height: 1.2rem; }
+        #category-description { font-size: 0.85rem; color: var(--accent); margin: 15px 0 5px 0; font-weight: 600; min-height: 1.2rem; }
 
-        .badge { background: var(--admin-color); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; font-weight: bold; }
-        .admin-tab { border: 2px solid var(--admin-color); color: var(--admin-color); font-weight: bold; }
-        .admin-tab.active { background: var(--admin-color); color: white; }
+        .posts-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 50px; }
+        @media (min-width: 640px) { .posts-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1024px) { .posts-grid { grid-template-columns: repeat(3, 1fr); } }
 
-        .posts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; margin-bottom: 50px; }
-        .card { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.3s; display: flex; flex-direction: column; position: relative; }
-        .card.drag-over { transform: scale(1.02); border: 2px solid var(--accent); background: #eef2ff; }
-        .card.is-group::before { content: ""; position: absolute; top: -5px; left: 5px; right: 5px; height: 10px; background: #cbd5e1; border-radius: 12px 12px 0 0; z-index: -1; }
+        .card { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column; position: relative; border: 1px solid #edf2f7; }
+        .card.is-group::before { content: ""; position: absolute; top: -4px; left: 8px; right: 8px; height: 10px; background: #cbd5e1; border-radius: 12px 12px 0 0; z-index: -1; }
         
-        .card-content { padding: 20px; flex-grow: 1; cursor: pointer; }
-        .card-footer { padding: 15px 20px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; gap: 5px; }
+        .card-content { padding: 18px; flex-grow: 1; }
+        .card-content h3 { margin: 8px 0; font-size: 1.1rem; word-break: keep-all; }
+        .card-footer { padding: 12px 18px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
 
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 10px; }
+        .modal-content { background: white; padding: 20px; border-radius: 16px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
+        
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; margin-top: 5px; font-size: 16px; }
+
+        .sub-item { padding: 12px 0; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 8px; }
+        @media (min-width: 480px) { .sub-item { flex-direction: row; justify-content: space-between; align-items: center; } }
+        
+        .btn-mini { padding: 6px 10px; font-size: 0.75rem; border-radius: 6px; }
+
+        .text-content-viewer { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; white-space: pre-wrap; font-size: 0.95rem; margin-top: 10px; }
+        
+        .badge { background: var(--admin-color); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 3px; }
+        .admin-tab { border: 2px solid var(--admin-color) !important; color: var(--admin-color); }
         .hidden { display: none !important; }
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; }
-        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; margin-top: 5px; }
-        .sub-item { padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
@@ -55,10 +66,10 @@
     <nav class="container">
         <div class="logo" onclick="location.reload()">⚙️ ME-Link</div>
         <div id="auth-ui">
-            <button id="login-btn" class="btn btn-login">Google 로그인</button>
-            <div id="user-ui" class="hidden">
-                <button id="open-submit-btn" class="btn btn-submit">자료등록</button>
-                <button id="logout-btn" class="btn btn-logout">로그아웃</button>
+            <button id="login-btn" class="btn btn-login">로그인</button>
+            <div id="user-ui" class="hidden" style="display:flex; gap:8px; align-items:center;">
+                <button id="open-submit-btn" class="btn btn-submit">등록</button>
+                <button id="logout-btn" class="btn btn-logout">나가기</button>
             </div>
         </div>
     </nav>
@@ -66,46 +77,69 @@
 
 <section class="search-section">
     <div class="container">
-        <input type="text" id="search-input" placeholder="관심 있는 수업 자료를 검색해 보세요...">
+        <input type="text" id="search-input" placeholder="자료 검색...">
         <div class="filter-group" id="category-filters">
             <button class="filter-btn active" data-cat="all" data-desc="">전체</button>
-            <button class="filter-btn" data-cat="학급운영" data-desc="학급을 운영하는데 도움이 되는 자료">학급운영</button>
-            <button class="filter-btn" data-cat="수업자료" data-desc="수업을 준비하는데 도움이 되는 수업자료">수업자료</button>
-            <button class="filter-btn" data-cat="수업TIP" data-desc="수업에 들어가기에 앞서 알아두면 좋은 TIP">수업TIP</button>
-            <button class="filter-btn" data-cat="문제해결" data-desc="수업 중 발생한 문제를 해결하는 방법">문제해결</button>
-            <button class="filter-btn" data-cat="행사자료" data-desc="행사 준비 및 안내에 도움이 될 자료">행사자료</button>
-            <button id="admin-tab" class="filter-btn admin-tab hidden" data-cat="pending" data-desc="관리자 전용: 승인 대기 자료 검토">
-                승인 대기 <span id="pending-count" class="badge">0</span>
+            <button class="filter-btn" data-cat="학급운영" data-desc="학급 운영 지원 자료">학급운영</button>
+            <button class="filter-btn" data-cat="수업자료" data-desc="교과 수업 준비 자료">수업자료</button>
+            <button class="filter-btn" data-cat="수업TIP" data-desc="수업 전 필수 팁">수업TIP</button>
+            <button class="filter-btn" data-cat="문제해결" data-desc="돌발 상황 해결 방법">문제해결</button>
+            <button class="filter-btn" data-cat="행사자료" data-desc="행사 준비 및 안내 자료">행사자료</button>
+            <button id="admin-tab" class="filter-btn admin-tab hidden" data-cat="pending" data-desc="승인 대기 자료 검토">
+                대기<span id="pending-count" class="badge">0</span>
             </button>
         </div>
     </div>
 </section>
 
 <main class="container">
-    <div id="category-description"></div> <!-- 설명이 나타날 자리 -->
-    <h2 id="view-title" style="margin-top: 0;">공개된 자료</h2>
+    <div id="category-description"></div>
+    <h2 id="view-title" style="margin-top: 0; font-size: 1.2rem;">공개된 자료</h2>
     <div id="posts-container" class="posts-grid"></div>
 </main>
 
-<!-- 모달 생략 (이전 코드와 동일) -->
-<div id="form-modal" class="modal hidden"><div class="modal-content"><h3 id="modal-title">수업자료 등록/수정</h3><form id="resource-form"><input type="hidden" id="edit-id"><label>제목</label><input type="text" id="form-title" required><label style="margin-top:10px; display:block;">카테고리</label><select id="form-category"><option>수업자료</option><option>학급운영</option><option>수업TIP</option><option>문제해결</option><option>행사자료</option></select><label style="margin-top:10px; display:block;">링크 (URL)</label><input type="url" id="form-url" required><label style="margin-top:10px; display:block;">설명</label><textarea id="form-desc" rows="3"></textarea><div style="display: flex; gap: 10px; margin-top: 20px;"><button type="submit" class="btn btn-submit" style="flex: 2;">저장하기</button><button type="button" onclick="closeModal('form-modal')" class="btn" style="flex: 1; background: #eee;">취소</button></div></form></div></div>
-<div id="group-modal" class="modal hidden"><div class="modal-content"><h3>자료 묶음</h3><div id="group-items-list"></div><button onclick="closeModal('group-modal')" class="btn" style="width:100%; margin-top:20px; background:#eee;">닫기</button></div></div>
+<!-- 모달 섹션 -->
+<div id="form-modal" class="modal hidden">
+    <div class="modal-content">
+        <h3 id="modal-title" style="margin-top:0;">자료 등록/수정</h3>
+        <form id="resource-form">
+            <input type="hidden" id="edit-id">
+            <label>제목</label><input type="text" id="form-title" required>
+            <label style="margin-top:12px; display:block;">카테고리</label>
+            <select id="form-category">
+                <option>수업자료</option><option>학급운영</option><option>수업TIP</option><option>문제해결</option><option>행사자료</option>
+            </select>
+            <label style="margin-top:12px; display:block;">링크 (URL)</label>
+            <input type="url" id="form-url" placeholder="https://...">
+            <label style="margin-top:12px; display:block;">내용/설명</label>
+            <textarea id="form-desc" rows="5"></textarea>
+            <div style="display: flex; gap: 10px; margin-top: 25px;">
+                <button type="submit" class="btn btn-submit" style="flex: 1;">저장</button>
+                <button type="button" onclick="closeModal('form-modal')" class="btn" style="flex: 1; background: #eee;">취소</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="text-viewer-modal" class="modal hidden"><div class="modal-content"><h3 id="viewer-title"></h3><div id="viewer-content" class="text-content-viewer"></div><button onclick="closeModal('text-viewer-modal')" class="btn" style="width:100%; margin-top:20px; background:#eee;">닫기</button></div></div>
+<div id="group-modal" class="modal hidden"><div class="modal-content"><h3 style="margin-top:0;">자료 묶음</h3><div id="group-items-list"></div><button onclick="closeModal('group-modal')" class="btn" style="width:100%; margin-top:20px; background:#eee;">닫기</button></div></div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getFirestore, collection, addDoc, query, where, getDocs, serverTimestamp, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
+    // 선생님의 Firebase 설정값 적용
     const firebaseConfig = {
-  apiKey: "AIzaSyADdq0ZHWBB8okvyE1r9C17AYVXs7ZvE38",
-  authDomain: "practice-7ba6a.firebaseapp.com",
-  databaseURL: "https://practice-7ba6a-default-rtdb.firebaseio.com",
-  projectId: "practice-7ba6a",
-  storageBucket: "practice-7ba6a.firebasestorage.app",
-  messagingSenderId: "194882748366",
-  appId: "1:194882748366:web:6939dadb34296b8a0cf59f",
-  measurementId: "G-J488BBZ4S6"
-};
+        apiKey: "AIzaSyADdq0ZHWBB8okvyE1r9C17AYVXs7ZvE38",
+        authDomain: "practice-7ba6a.firebaseapp.com",
+        databaseURL: "https://practice-7ba6a-default-rtdb.firebaseio.com",
+        projectId: "practice-7ba6a",
+        storageBucket: "practice-7ba6a.firebasestorage.app",
+        messagingSenderId: "194882748366",
+        appId: "1:194882748366:web:6939dadb34296b8a0cf59f",
+        measurementId: "G-J488BBZ4S6"
+    };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
@@ -116,10 +150,8 @@
     let allPosts = [];
     let currentCat = 'all';
 
-    const postsContainer = document.getElementById('posts-container');
-    const descArea = document.getElementById('category-description');
-
     function render() {
+        const postsContainer = document.getElementById('posts-container');
         postsContainer.innerHTML = '';
         const isAdmin = auth.currentUser?.email === ADMIN_EMAIL;
         let displayPosts = allPosts.filter(p => !p.parentId);
@@ -134,31 +166,17 @@
             const children = allPosts.filter(p => p.parentId === post.id);
             const card = document.createElement('div');
             card.className = `card ${children.length > 0 ? 'is-group' : ''}`;
-            
-            if (isAdmin) {
-                card.draggable = true;
-                card.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', post.id));
-                card.addEventListener('dragover', (e) => { e.preventDefault(); card.classList.add('drag-over'); });
-                card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
-                card.addEventListener('drop', (e) => {
-                    e.preventDefault(); card.classList.remove('drag-over');
-                    const draggedId = e.dataTransfer.getData('text/plain');
-                    if (draggedId !== post.id) handleMerge(draggedId, post.id);
-                });
-            }
-
             card.innerHTML = `
                 <div class="card-content" onclick="handleCardClick('${post.id}')">
-                    <span style="font-size:0.75rem; color:var(--accent);">#${post.category} ${children.length > 0 ? `(+${children.length})` : ''}</span>
-                    <h3 style="margin:8px 0;">${post.title}</h3>
-                    <p style="font-size:0.9rem; color:#64748b; margin-bottom:0;">${post.description}</p>
+                    <span style="font-size:0.7rem; color:var(--accent); font-weight:bold;">#${post.category} ${children.length > 0 ? `+${children.length}` : ''}</span>
+                    <h3>${post.title}</h3>
+                    <p style="font-size:0.85rem; color:#64748b; margin:0;">${post.description.substring(0, 60)}...</p>
                 </div>
                 <div class="card-footer">
-                    <span style="font-size:0.8rem; color:#94a3b8;">by ${post.author.split('@')[0]}</span>
+                    <span style="font-size:0.75rem; color:#94a3b8;">${post.author.split('@')[0]}</span>
                     <div style="display:flex; gap:5px;">
-                        ${isAdmin ? `<button class="btn" style="background:#64748b; color:white; font-size:0.7rem;" onclick="event.stopPropagation(); openEditModal('${post.id}')">수정</button>` : ''}
-                        ${isAdmin && post.status === 'pending' ? `<button class="btn" style="background:#10b981; color:white; font-size:0.7rem;" onclick="event.stopPropagation(); updatePostStatus('${post.id}', 'approved')">승인</button>` : ''}
-                        <button class="btn" style="font-size:0.7rem; background:#e2e8f0;" onclick="event.stopPropagation(); copyLink('${post.link_url}')">🔗 복사</button>
+                        ${isAdmin ? `<button class="btn btn-mini" style="background:#64748b; color:white;" onclick="event.stopPropagation(); openEditModal('${post.id}')">수정</button>` : ''}
+                        <button class="btn btn-mini" style="background:#e2e8f0;" onclick="event.stopPropagation(); ${post.link_url ? `copyLink('${post.link_url}')` : `handleCardClick('${post.id}')`}">${post.link_url ? '복사' : '보기'}</button>
                     </div>
                 </div>
             `;
@@ -166,34 +184,85 @@
         });
     }
 
-    // 카테고리 필터 클릭 이벤트
+    // 모달 및 데이터 처리 로직
+    window.handleCardClick = (id) => {
+        const post = allPosts.find(p => p.id === id);
+        const children = allPosts.filter(p => p.parentId === id);
+        if (children.length > 0) {
+            const listContainer = document.getElementById('group-items-list');
+            listContainer.innerHTML = '';
+            [post, ...children].forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'sub-item';
+                div.innerHTML = `<div><b>${item.title}</b></div>
+                    <button class="btn btn-mini" style="background:var(--accent); color:white;" onclick="handleSubItemClick('${item.id}')">${item.link_url ? '열기' : '본문'}</button>`;
+                listContainer.appendChild(div);
+            });
+            document.getElementById('group-modal').classList.remove('hidden');
+        } else { handleSubItemClick(id); }
+    };
+
+    window.handleSubItemClick = (id) => {
+        const post = allPosts.find(p => p.id === id);
+        if (post.link_url) { window.open(post.link_url, '_blank'); }
+        else {
+            document.getElementById('viewer-title').innerText = post.title;
+            document.getElementById('viewer-content').innerText = post.description;
+            document.getElementById('text-viewer-modal').classList.remove('hidden');
+        }
+    };
+
+    onSnapshot(collection(db, "posts"), (snapshot) => {
+        allPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        document.getElementById('pending-count').innerText = allPosts.filter(p => p.status === 'pending').length;
+        render();
+    });
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            if (user.email === ADMIN_EMAIL) document.getElementById('admin-tab').classList.remove('hidden');
+            document.getElementById('login-btn').classList.add('hidden');
+            document.getElementById('user-ui').classList.remove('hidden');
+        }
+    });
+
     document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.onclick = () => {
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            
-            // 설명 업데이트
-            const desc = btn.getAttribute('data-desc');
-            descArea.innerText = desc;
-            
             currentCat = btn.getAttribute('data-cat');
             render();
         };
     });
 
-    // 나머지 Firebase 연동 함수들은 이전과 동일하게 유지...
-    window.openEditModal = (id) => { const post = allPosts.find(p => p.id === id); document.getElementById('edit-id').value = id; document.getElementById('form-title').value = post.title; document.getElementById('form-category').value = post.category; document.getElementById('form-url').value = post.link_url; document.getElementById('form-desc').value = post.description; document.getElementById('form-modal').classList.remove('hidden'); };
-    window.handleCardClick = (id) => { const post = allPosts.find(p => p.id === id); const children = allPosts.filter(p => p.parentId === id); if (children.length > 0) { const listContainer = document.getElementById('group-items-list'); listContainer.innerHTML = ''; [post, ...children].forEach(item => { const div = document.createElement('div'); div.className = 'sub-item'; div.innerHTML = `<div><b>${item.title}</b></div><button class="btn" style="font-size:0.7rem; background:var(--accent); color:white;" onclick="window.open('${item.link_url}')">열기</button>`; listContainer.appendChild(div); }); document.getElementById('group-modal').classList.remove('hidden'); } else { window.open(post.link_url, '_blank'); } };
-    async function handleMerge(draggedId, targetId) { if (confirm('이 자료를 그룹에 추가하시겠습니까?')) await updateDoc(doc(db, "posts", draggedId), { parentId: targetId }); }
-    onSnapshot(collection(db, "posts"), (snapshot) => { allPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })); document.getElementById('pending-count').innerText = allPosts.filter(p => p.status === 'pending').length; render(); });
-    onAuthStateChanged(auth, (user) => { if (user && user.email === ADMIN_EMAIL) document.getElementById('admin-tab').classList.remove('hidden'); if (user) { document.getElementById('login-btn').classList.add('hidden'); document.getElementById('user-ui').classList.remove('hidden'); } render(); });
-    document.getElementById('resource-form').onsubmit = async (e) => { e.preventDefault(); const editId = document.getElementById('edit-id').value; const data = { title: document.getElementById('form-title').value, category: document.getElementById('form-category').value, link_url: document.getElementById('form-url').value, description: document.getElementById('form-desc').value }; if (editId) await updateDoc(doc(db, "posts", editId), data); else await addDoc(collection(db, "posts"), { ...data, author: auth.currentUser.email, status: "pending", created_at: serverTimestamp() }); closeModal('form-modal'); };
+    document.getElementById('resource-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const editId = document.getElementById('edit-id').value;
+        const data = {
+            title: document.getElementById('form-title').value,
+            category: document.getElementById('form-category').value,
+            link_url: document.getElementById('form-url').value || "",
+            description: document.getElementById('form-desc').value || ""
+        };
+        if (editId) await updateDoc(doc(db, "posts", editId), data);
+        else await addDoc(collection(db, "posts"), { ...data, author: auth.currentUser.email, status: "pending", created_at: serverTimestamp() });
+        closeModal('form-modal');
+    };
+
+    window.openEditModal = (id) => {
+        const post = allPosts.find(p => p.id === id);
+        document.getElementById('edit-id').value = id;
+        document.getElementById('form-title').value = post.title;
+        document.getElementById('form-url').value = post.link_url;
+        document.getElementById('form-desc').value = post.description;
+        document.getElementById('form-modal').classList.remove('hidden');
+    };
+
     window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
-    window.updatePostStatus = async (id, status) => { await updateDoc(doc(db, "posts", id), { status }); };
-    window.copyLink = (url) => { navigator.clipboard.writeText(url); alert('복사완료!'); };
+    window.copyLink = (url) => { navigator.clipboard.writeText(url); alert('복사되었습니다.'); };
     document.getElementById('login-btn').onclick = () => signInWithPopup(auth, provider);
     document.getElementById('logout-btn').onclick = () => signOut(auth);
-    document.getElementById('open-submit-btn').onclick = () => { document.getElementById('edit-id').value = ""; document.getElementById('form-modal').classList.remove('hidden'); };
+    document.getElementById('open-submit-btn').onclick = () => { document.getElementById('edit-id').value = ""; document.getElementById('resource-form').reset(); document.getElementById('form-modal').classList.remove('hidden'); };
 </script>
 </body>
 </html>
