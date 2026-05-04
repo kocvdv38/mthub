@@ -369,14 +369,10 @@ window.showTextDetail = (id) => {
     const rawDesc = String((post && post.description) || "");
     const normalizedDesc = rawDesc.replace(/^\s+/, '');
     
-    list.innerHTML = `
-        <div style="padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+    list.innerHTML = `<div style="padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
             <h4 style="margin-top:0; color:var(--primary);">${post.title}</h4>
-            <div style="white-space: pre-wrap; line-height: 1.6; font-size: 0.95rem; color: #334155;">
-                ${normalizedDesc || "등록된 상세 내용이 없습니다."}
-            </div>
-        </div>
-    `;
+            <div style="white-space: pre-wrap; line-height: 1.6; font-size: 0.95rem; color: #334155;">${normalizedDesc || "등록된 상세 내용이 없습니다."}</div>
+        </div>`;
     document.getElementById('group-modal').classList.remove('hidden');
 };
 
