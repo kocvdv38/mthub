@@ -87,7 +87,6 @@
             <button class="filter-btn active" data-cat="all">전체</button>
             <button class="filter-btn" data-cat="학급운영">학급운영</button>
             <button class="filter-btn" data-cat="수업자료">수업자료</button>
-            <button class="filter-btn" data-cat="수업TIP">수업TIP</button>
             <button class="filter-btn" data-cat="문제해결">문제해결</button>
             <button class="filter-btn" data-cat="행사자료">행사자료</button>
             <button id="admin-tab" class="filter-btn hidden" style="border:2px solid var(--admin-color); color:var(--admin-color);" data-cat="pending">
@@ -118,9 +117,18 @@
             <input type="hidden" id="edit-id">
             <label>제목 (메인)</label><input type="text" id="form-title" required>
             <label>카테고리</label>
-            <select id="form-category">
-                <option>학급운영</option><option>수업자료</option><option>수업TIP</option><option>문제해결</option><option>행사자료</option>
+            <select id="form-category" onchange="toggleMaterialTypeField()">
+                <option>학급운영</option><option>수업자료</option><option>문제해결</option><option>행사자료</option>
             </select>
+            <div id="material-type-wrap" style="display:none;">
+                <label>수업자료 구분</label>
+                <select id="form-material-type">
+                    <option>PPT</option>
+                    <option>학습자료</option>
+                    <option>평가</option>
+                    <option>기타</option>
+                </select>
+            </div>
             <label>과목 선택</label>
             <select id="form-subject"></select>
             <label>링크 (URL)</label><input type="url" id="form-url">
@@ -193,6 +201,13 @@
         });
     }
     window.filterBySub = (name) => { currentSub = name; renderSubjects(); render(); };
+    window.toggleMaterialTypeField = () => {
+        const catEl = document.getElementById('form-category');
+        const wrap = document.getElementById('material-type-wrap');
+        if (!catEl || !wrap) return;
+        const on = String(catEl.value || '') === '수업자료';
+        wrap.style.display = on ? 'block' : 'none';
+    };
 
     // --- 메인 드래그 앤 드롭 (그룹화 기능) ---
     function handleDragStart(e) {
@@ -260,7 +275,7 @@
 
             card.innerHTML = `
                 <div class="card-content">
-                    <span style="font-size:0.7rem; color:var(--accent); font-weight:bold;">#${post.category} | ${post.subject || '공통'}</span>
+                    <span style="font-size:0.7rem; color:var(--accent); font-weight:bold;">#${post.category}${post.category === '수업자료' ? ' · ' + (post.material_type || '기타') : ''} | ${post.subject || '공통'}</span>
                     <h3 style="margin:5px 0;">${post.title}</h3>
                     ${children.length > 0 ? `<span style="font-size:0.7rem; color:#64748b;">📦 포함된 자료: ${children.length}개</span>` : ''}
                 </div>
@@ -370,6 +385,9 @@ window.showTextDetail = (id) => {
         const data = {
             title: document.getElementById('form-title').value,
             category: document.getElementById('form-category').value,
+            material_type: (document.getElementById('form-category').value === '수업자료')
+                ? (document.getElementById('form-material-type').value || '기타')
+                : "",
             subject: document.getElementById('form-subject').value,
             link_url: document.getElementById('form-url').value,
             description: document.getElementById('form-desc').value,
@@ -418,6 +436,8 @@ window.openEditModal = (id) => {
 
     document.getElementById('form-title').value = post.title;
     document.getElementById('form-category').value = post.category;
+    document.getElementById('form-material-type').value = (post.material_type || '기타');
+    if (typeof toggleMaterialTypeField === 'function') toggleMaterialTypeField();
     document.getElementById('form-subject').value = post.subject || "";
     document.getElementById('form-url').value = post.link_url || "";
     document.getElementById('form-desc').value = post.description || "";
@@ -447,6 +467,9 @@ window.openEditModal = (id) => {
     document.getElementById('open-submit-btn').onclick = () => { 
         document.getElementById('edit-id').value = ""; 
         document.getElementById('resource-form').reset(); 
+        const mt = document.getElementById('form-material-type');
+        if (mt) mt.value = 'PPT';
+        if (typeof toggleMaterialTypeField === 'function') toggleMaterialTypeField();
         document.getElementById('form-modal').classList.remove('hidden'); 
     };
 
