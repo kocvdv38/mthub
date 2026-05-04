@@ -267,7 +267,11 @@
                 <div class="card-footer">
                     <span style="font-size:0.75rem; color:#94a3b8;">${post.author?.split('@')[0]}</span>
                     <div style="display:flex; gap:4px;">
-                        ${isAdmin || user?.email === post.author ? `<button class="btn btn-mini" style="background:#64748b; color:white;" onclick="event.stopPropagation(); openEditModal('${post.id}')">수정</button>` : ''}
+                        ${isAdmin || user?.email === post.author ? 
+                            `<button class="btn btn-mini" style="background:#64748b; color:white;" 
+                                onclick="event.stopPropagation(); openEditModal('${post.id}')">
+                                ${allPosts.some(p => p.parentId === post.id) ? '📂 폴더 수정' : '수정'} 
+                            </button>` : ''}
                         ${isAdmin ? `<button class="btn btn-mini" style="background:var(--admin-color); color:white;" onclick="event.stopPropagation(); deletePost('${post.id}')">삭제</button>` : ''}
                     </div>
                 </div>
@@ -278,7 +282,7 @@
 
 window.handleCardClick = (id) => {
     const isAdmin = auth.currentUser?.email === ADMIN_EMAIL;
-    const post = allPosts.find(p => p.id === id);
+    const children = allPosts.filter(p => p.parentId === post.id); // 자식 자료 확인
     const children = allPosts.filter(p => p.parentId === id).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     
     if (children.length > 0) {
@@ -396,16 +400,34 @@ window.showTextDetail = (id) => {
     });
 
     window.deletePost = async (id) => { if(confirm("정말 삭제하시겠습니까?")) await deleteDoc(doc(db, "posts", id)); };
-    window.openEditModal = (id) => {
-        const post = allPosts.find(p => p.id === id);
-        document.getElementById('edit-id').value = id;
-        document.getElementById('form-title').value = post.title;
-        document.getElementById('form-category').value = post.category;
-        document.getElementById('form-subject').value = post.subject || "";
-        document.getElementById('form-url').value = post.link_url || "";
-        document.getElementById('form-desc').value = post.description || "";
-        document.getElementById('form-modal').classList.remove('hidden');
-    };
+window.openEditModal = (id) => {
+    const post = allPosts.find(p => p.id === id);
+    // 자식이 있는지 확인하여 폴더인지 파일인지 구분
+    const children = allPosts.filter(p => p.parentId === id);
+    
+    document.getElementById('edit-id').value = id;
+    
+    // 1. 모달 제목을 폴더/자료에 따라 다르게 표시
+    const modalTitle = document.getElementById('modal-title');
+    if (modalTitle) {
+        modalTitle.innerText = children.length > 0 ? "📂 폴더(묶음) 정보 수정" : "📄 자료 정보 수정";
+    }
+
+    document.getElementById('form-title').value = post.title;
+    document.getElementById('form-category').value = post.category;
+    document.getElementById('form-subject').value = post.subject || "";
+    document.getElementById('form-url').value = post.link_url || "";
+    document.getElementById('form-desc').value = post.description || "";
+    
+    // 2. [중요] 묶음 모달이 열려있다면 닫아서 수정창을 가리지 않게 함
+    const groupModal = document.getElementById('group-modal');
+    if (groupModal) {
+        groupModal.classList.add('hidden');
+    }
+    
+    // 3. 수정 모달 열기
+    document.getElementById('form-modal').classList.remove('hidden');
+};
 
     document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.onclick = () => {
