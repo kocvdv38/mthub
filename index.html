@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ME-Link | 관리자 최적화 & 순서 편집</title>
+    <title>ME-Link | 관리자 드래그 그룹화 모드</title>
     <style>
         :root {
             --primary: #1e40af; --accent: #3b82f6; --bg: #f1f5f9;
@@ -33,24 +33,27 @@
         .subject-tag { padding: 4px 10px; border-radius: 6px; border: 1px solid #dee2e6; background: #f8fafc; font-size: 0.8rem; cursor: pointer; }
         .subject-tag.active { background: var(--accent); color: white; border-color: var(--accent); }
 
-        /* 카드 그리드 */
+        /* 카드 그리드 및 드래그 스타일 */
         .posts-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin: 20px 0 50px 0; }
         @media (min-width: 640px) { .posts-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (min-width: 1024px) { .posts-grid { grid-template-columns: repeat(3, 1fr); } }
 
-        .card { background: var(--card); border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column; border: 1px solid #edf2f7; cursor: pointer; position: relative; }
+        .card { background: var(--card); border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column; border: 1px solid #edf2f7; cursor: pointer; position: relative; transition: transform 0.2s, border-color 0.2s; }
         .card.is-group::before { content: ""; position: absolute; top: -5px; left: 10px; right: 10px; height: 10px; background: #cbd5e1; border-radius: 10px 10px 0 0; z-index: -1; }
+        
+        /* 관리자 드래그 전용 피드백 */
+        .card.drag-over { border: 2px dashed var(--accent); transform: scale(1.02); background: #eff6ff; }
+        .card.dragging { opacity: 0.4; }
+
         .card-content { padding: 18px; flex-grow: 1; }
         .card-footer { padding: 10px 18px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
 
-        /* 묶음 리스트 & 드래그 */
-        .sub-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; background: white; }
-        .sub-item.draggable { cursor: move; }
-        .sub-item.dragging { opacity: 0.5; background: #e0e7ff; }
-        .sub-item-title { flex: 1; font-size: 0.95rem; font-weight: 500; }
-
+        /* 모달 스타일 */
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 10px; }
         .modal-content { background: white; padding: 20px; border-radius: 16px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+        
+        .sub-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; background: white; }
+        .sub-item-title { flex: 1; font-size: 0.95rem; font-weight: 500; }
         
         input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; margin-top: 5px; font-size: 16px; }
         .btn-mini { padding: 4px 8px; font-size: 0.7rem; border-radius: 4px; border: none; cursor: pointer; }
@@ -87,8 +90,6 @@
                 대기<span id="pending-count" class="badge">0</span>
             </button>
         </div>
-
-        <!-- 과목 바 -->
         <div class="subject-bar" id="subject-list">
             <span style="font-size:0.8rem; font-weight:bold; color:#64748b;">과목: </span>
             <button class="subject-tag active" data-sub="all">전체</button>
@@ -97,6 +98,7 @@
             <input type="text" id="new-subject-name" placeholder="새 과목 추가..." style="width:150px; padding:4px; font-size:12px;">
             <button onclick="addSubject()" class="btn-mini" style="background:var(--primary); color:white;">추가</button>
         </div>
+        <p id="admin-instruction" class="hidden" style="font-size:0.75rem; color:var(--accent); margin-top:10px;">💡 관리자 모드: 카드를 다른 카드 위로 드래그하여 자료를 묶을 수 있습니다.</p>
     </div>
 </section>
 
@@ -130,7 +132,7 @@
 <!-- 묶음 모달 -->
 <div id="group-modal" class="modal hidden">
     <div class="modal-content">
-        <h3 style="margin-top:0;">📦 자료 묶음 <span id="admin-hint" class="hidden" style="font-size:0.7rem; color:var(--accent);">(관리자: 드래그하여 순서변경)</span></h3>
+        <h3 style="margin-top:0;">📦 자료 묶음</h3>
         <div id="group-items-list"></div>
         <button onclick="closeModal('group-modal')" class="btn" style="width:100%; margin-top:20px; background:#eee;">닫기</button>
     </div>
@@ -160,6 +162,7 @@
     let allSubjects = [];
     let currentCat = 'all';
     let currentSub = 'all';
+    let draggedId = null;
 
     // --- 과목 관리 ---
     window.addSubject = async () => {
@@ -174,54 +177,52 @@
         const select = document.getElementById('form-subject');
         list.innerHTML = `<span style="font-size:0.8rem; font-weight:bold; color:#64748b;">과목: </span><button class="subject-tag ${currentSub === 'all' ? 'active' : ''}" onclick="filterBySub('all')">전체</button>`;
         select.innerHTML = `<option value="">미지정</option>`;
-
         allSubjects.forEach(sub => {
             const btn = document.createElement('button');
             btn.className = `subject-tag ${currentSub === sub.name ? 'active' : ''}`;
             btn.innerText = sub.name;
             btn.onclick = () => filterBySub(sub.name);
             list.appendChild(btn);
-
             const opt = document.createElement('option');
             opt.value = sub.name; opt.innerText = sub.name;
             select.appendChild(opt);
         });
     }
-
     window.filterBySub = (name) => { currentSub = name; renderSubjects(); render(); };
 
-    // --- 순서 변경 (Drag & Drop) ---
-    let dragSrcEl = null;
+    // --- 메인 드래그 앤 드롭 (그룹화 기능) ---
     function handleDragStart(e) {
-        dragSrcEl = this;
+        draggedId = this.getAttribute('data-id');
         this.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-    }
-    function handleDragOver(e) { e.preventDefault(); return false; }
-    function handleDrop(e) {
-        e.stopPropagation();
-        if (dragSrcEl !== this) {
-            const list = document.getElementById('group-items-list');
-            const allItems = [...list.querySelectorAll('.sub-item')];
-            const fromIndex = allItems.indexOf(dragSrcEl);
-            const toIndex = allItems.indexOf(this);
-            
-            if (fromIndex < toIndex) this.after(dragSrcEl);
-            else this.before(dragSrcEl);
-            
-            saveNewOrder();
-        }
-        return false;
-    }
-    async function saveNewOrder() {
-        const items = document.querySelectorAll('.sub-item');
-        items.forEach(async (item, index) => {
-            const id = item.getAttribute('data-id');
-            await updateDoc(doc(db, "posts", id), { sortOrder: index });
-        });
+        e.dataTransfer.setData('text/plain', draggedId);
     }
 
-    // --- 메인 렌더링 ---
+    function handleDragOver(e) {
+        e.preventDefault();
+        this.classList.add('drag-over');
+    }
+
+    function handleDragLeave() {
+        this.classList.remove('drag-over');
+    }
+
+    async function handleDrop(e) {
+        e.preventDefault();
+        this.classList.remove('drag-over');
+        const targetId = this.getAttribute('data-id');
+        const sourceId = e.dataTransfer.getData('text/plain');
+
+        if (sourceId && targetId && sourceId !== targetId) {
+            if (confirm("이 자료를 해당 묶음 안으로 넣으시겠습니까?")) {
+                await updateDoc(doc(db, "posts", sourceId), {
+                    parentId: targetId,
+                    status: 'approved' // 묶이는 순간 자동 승인
+                });
+            }
+        }
+    }
+
+    // --- 렌더링 ---
     function render() {
         const container = document.getElementById('posts-container');
         container.innerHTML = '';
@@ -232,6 +233,7 @@
             if (currentCat === 'pending') return p.status === 'pending';
             const matchCat = currentCat === 'all' || p.category === currentCat;
             const matchSub = currentSub === 'all' || p.subject === currentSub;
+            // parentId가 없는(최상위) 자료만 메인에 표시
             return matchCat && matchSub && p.status === 'approved' && !p.parentId;
         });
 
@@ -239,17 +241,28 @@
             const children = allPosts.filter(p => p.parentId === post.id);
             const card = document.createElement('div');
             card.className = `card ${children.length > 0 ? 'is-group' : ''}`;
+            card.setAttribute('data-id', post.id);
             card.onclick = () => handleCardClick(post.id);
+
+            // 관리자 전용 드래그 이벤트 연결
+            if (isAdmin) {
+                card.draggable = true;
+                card.addEventListener('dragstart', handleDragStart);
+                card.addEventListener('dragover', handleDragOver);
+                card.addEventListener('dragleave', handleDragLeave);
+                card.addEventListener('drop', handleDrop);
+                card.addEventListener('dragend', () => card.classList.remove('dragging'));
+            }
 
             card.innerHTML = `
                 <div class="card-content">
                     <span style="font-size:0.7rem; color:var(--accent); font-weight:bold;">#${post.category} | ${post.subject || '공통'}</span>
                     <h3 style="margin:5px 0;">${post.title}</h3>
+                    ${children.length > 0 ? `<span style="font-size:0.7rem; color:#64748b;">📦 포함된 자료: ${children.length}개</span>` : ''}
                 </div>
                 <div class="card-footer">
                     <span style="font-size:0.75rem; color:#94a3b8;">${post.author?.split('@')[0]}</span>
                     <div style="display:flex; gap:4px;">
-                        ${isAdmin && post.status === 'pending' ? `<button class="btn btn-mini" style="background:var(--success); color:white;" onclick="event.stopPropagation(); approvePost('${post.id}')">승인</button>` : ''}
                         ${isAdmin || user?.email === post.author ? `<button class="btn btn-mini" style="background:#64748b; color:white;" onclick="event.stopPropagation(); openEditModal('${post.id}')">수정</button>` : ''}
                         ${isAdmin ? `<button class="btn btn-mini" style="background:var(--admin-color); color:white;" onclick="event.stopPropagation(); deletePost('${post.id}')">삭제</button>` : ''}
                     </div>
@@ -259,63 +272,89 @@
         });
     }
 
-    window.handleCardClick = (id) => {
-        const isAdmin = auth.currentUser?.email === ADMIN_EMAIL;
-        const post = allPosts.find(p => p.id === id);
-        const children = allPosts.filter(p => p.parentId === id).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+window.handleCardClick = (id) => {
+    const isAdmin = auth.currentUser?.email === ADMIN_EMAIL;
+    const post = allPosts.find(p => p.id === id);
+    const children = allPosts.filter(p => p.parentId === id).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    
+    // 1. 묶음 자료(그룹)인 경우
+    if (children.length > 0) {
+        const list = document.getElementById('group-items-list');
+        list.innerHTML = '';
         
-        if (children.length > 0) {
-            const list = document.getElementById('group-items-list');
-            list.innerHTML = '';
-            [post, ...children].forEach((item, idx) => {
-                const div = document.createElement('div');
-                div.className = `sub-item ${isAdmin ? 'draggable' : ''}`;
-                div.setAttribute('data-id', item.id);
-                if(isAdmin) {
-                    div.draggable = true;
-                    div.addEventListener('dragstart', handleDragStart);
-                    div.addEventListener('dragover', handleDragOver);
-                    div.addEventListener('drop', handleDrop);
-                    div.addEventListener('dragend', () => div.classList.remove('dragging'));
-                }
-                div.innerHTML = `
-                    <span class="sub-item-title">${item.title}</span>
-                    <button class="btn btn-mini" style="background:var(--accent); color:white;" onclick="window.open('${item.link_url}','_blank')">열기</button>
-                `;
-                list.appendChild(div);
-            });
-            document.getElementById('admin-hint').classList.toggle('hidden', !isAdmin);
-            document.getElementById('group-modal').classList.remove('hidden');
+        // 부모 자료와 자식 자료를 모달창 리스트에 표시
+        [post, ...children].forEach((item) => {
+            const div = document.createElement('div');
+            div.className = `sub-item`;
+            div.innerHTML = `
+                <span class="sub-item-title">${item.title}</span>
+                <div style="display:flex; gap:5px;">
+                    <!-- 링크가 있으면 '열기', 없으면 '내용보기' 버튼을 표시 -->
+                    ${item.link_url 
+                        ? `<button class="btn btn-mini" style="background:var(--accent); color:white;" onclick="window.open('${item.link_url}','_blank')">열기</button>` 
+                        : `<button class="btn btn-mini" style="background:var(--success); color:white;" onclick="showTextDetail('${item.id}')">내용보기</button>`
+                    }
+                    ${isAdmin && item.id !== post.id ? `<button class="btn btn-mini" style="background:#cbd5e1;" onclick="removeFromGroup('${item.id}')">해제</button>` : ''}
+                </div>
+            `;
+            list.appendChild(div);
+        });
+        document.getElementById('group-modal').classList.remove('hidden');
+    } 
+    // 2. 단일 자료인 경우
+    else {
+        if (post.link_url) {
+            // 링크가 있으면 새 창으로 연결
+            window.open(post.link_url, '_blank');
         } else {
-            if(post.link_url) window.open(post.link_url, '_blank');
+            // 링크가 없으면 상세 내용 모달을 띄움
+            showTextDetail(id);
+        }
+    }
+};
+
+// 텍스트 상세 내용을 보여주기 위한 보조 함수 (이것도 함께 복사해서 붙여넣어 주세요)
+window.showTextDetail = (id) => {
+    const post = allPosts.find(p => p.id === id);
+    const list = document.getElementById('group-items-list');
+    
+    list.innerHTML = `
+        <div style="padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <h4 style="margin-top:0; color:var(--primary);">${post.title}</h4>
+            <div style="white-space: pre-wrap; line-height: 1.6; font-size: 0.95rem; color: #334155;">
+                ${post.description || "등록된 상세 내용이 없습니다."}
+            </div>
+        </div>
+    `;
+    document.getElementById('group-modal').classList.remove('hidden');
+};
+
+    window.removeFromGroup = async (id) => {
+        if(confirm("이 자료를 그룹에서 제외하여 개별 자료로 만드시겠습니까?")) {
+            await updateDoc(doc(db, "posts", id), { parentId: null });
+            closeModal('group-modal');
         }
     };
 
-    // --- 데이터 저장 (관리자 즉시 반영 로직) ---
+    // --- 기타 로직 ---
     document.getElementById('resource-form').onsubmit = async (e) => {
         e.preventDefault();
         const user = auth.currentUser;
-        const isAdmin = user?.email === ADMIN_EMAIL;
         const editId = document.getElementById('edit-id').value;
-
         const data = {
             title: document.getElementById('form-title').value,
             category: document.getElementById('form-category').value,
             subject: document.getElementById('form-subject').value,
             link_url: document.getElementById('form-url').value,
             description: document.getElementById('form-desc').value,
-            // 관리자면 즉시 승인(approved), 아니면 대기(pending)
-            status: isAdmin ? "approved" : "pending",
+            status: (user.email === ADMIN_EMAIL) ? "approved" : "pending",
             updated_at: serverTimestamp()
         };
-
         if (editId) await updateDoc(doc(db, "posts", editId), data);
         else await addDoc(collection(db, "posts"), { ...data, author: user.email, created_at: serverTimestamp(), sortOrder: 999 });
-        
         closeModal('form-modal');
     };
 
-    // --- 초기화 및 스냅샷 ---
     onSnapshot(collection(db, "posts"), (snap) => {
         allPosts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         document.getElementById('pending-count').innerText = allPosts.filter(p => p.status === 'pending').length;
@@ -331,13 +370,13 @@
         const isAdmin = user?.email === ADMIN_EMAIL;
         document.getElementById('admin-tab').classList.toggle('hidden', !isAdmin);
         document.getElementById('admin-subject-tools').classList.toggle('hidden', !isAdmin);
+        document.getElementById('admin-instruction').classList.toggle('hidden', !isAdmin);
         document.getElementById('user-ui').classList.toggle('hidden', !user);
         document.getElementById('login-btn').classList.toggle('hidden', !!user);
         render();
     });
 
-    window.approvePost = async (id) => { if(confirm("승인하시겠습니까?")) await updateDoc(doc(db, "posts", id), { status: 'approved' }); };
-    window.deletePost = async (id) => { if(confirm("삭제하시겠습니까?")) await deleteDoc(doc(db, "posts", id)); };
+    window.deletePost = async (id) => { if(confirm("정말 삭제하시겠습니까?")) await deleteDoc(doc(db, "posts", id)); };
     window.openEditModal = (id) => {
         const post = allPosts.find(p => p.id === id);
         document.getElementById('edit-id').value = id;
@@ -346,7 +385,6 @@
         document.getElementById('form-subject').value = post.subject || "";
         document.getElementById('form-url').value = post.link_url || "";
         document.getElementById('form-desc').value = post.description || "";
-        closeModal('group-modal');
         document.getElementById('form-modal').classList.remove('hidden');
     };
 
