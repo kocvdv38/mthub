@@ -88,7 +88,7 @@
             <button class="filter-btn" data-cat="학급운영">학급운영</button>
             <button class="filter-btn" data-cat="수업자료">수업자료</button>
             <button class="filter-btn" data-cat="문제해결">문제해결</button>
-            <button class="filter-btn" data-cat="행사자료">행사자료</button>
+            <button class="filter-btn" data-cat="안내사항">안내사항</button>
             <button id="admin-tab" class="filter-btn hidden" style="border:2px solid var(--admin-color); color:var(--admin-color);" data-cat="pending">
                 대기<span id="pending-count" class="badge">0</span>
             </button>
@@ -118,7 +118,7 @@
             <label>제목 (메인)</label><input type="text" id="form-title" required>
             <label>카테고리</label>
             <select id="form-category" onchange="toggleMaterialTypeField()">
-                <option>학급운영</option><option>수업자료</option><option>문제해결</option><option>행사자료</option>
+                <option>학급운영</option><option>수업자료</option><option>문제해결</option><option>안내사항</option>
             </select>
             <div id="material-type-wrap" style="display:none;">
                 <label>수업자료 구분</label>
@@ -185,7 +185,7 @@
         if (!name) return;
         const col =
             currentCat === '학급운영' ? 'classGroups' :
-            currentCat === '행사자료' ? 'eventGroups' :
+            (currentCat === '안내사항' || currentCat === '행사자료') ? 'eventGroups' :
             'subjects';
         await addDoc(collection(db, col), { name, created_at: serverTimestamp() });
         if (col === 'classGroups' && !allClassGroups.some(x => String(x.name || '') === name)) allClassGroups.push({ name });
@@ -198,7 +198,7 @@
     function getFormOptionMode(category) {
         const c = String(category || '').trim();
         if (c === '학급운영') return 'class';
-        if (c === '행사자료') return 'event';
+        if (c === '안내사항' || c === '행사자료') return 'event';
         return 'subject';
     }
     function getFormOptionList(category) {
@@ -231,19 +231,19 @@
         const input = document.getElementById('new-subject-name');
         if (!input) return;
         if (currentCat === '학급운영') input.placeholder = '새 학급운영 구분 추가...';
-        else if (currentCat === '행사자료') input.placeholder = '새 행사자료 구분 추가...';
+        else if (currentCat === '안내사항' || currentCat === '행사자료') input.placeholder = '새 안내사항 구분 추가...';
         else input.placeholder = '새 과목 추가...';
     }
 
     function isTopOptionFilterEnabled() {
-        return currentCat === '수업자료' || currentCat === '문제해결' || currentCat === '학급운영' || currentCat === '행사자료';
+        return currentCat === '수업자료' || currentCat === '문제해결' || currentCat === '학급운영' || currentCat === '안내사항' || currentCat === '행사자료';
     }
     function getTopOptionLabel() {
-        return (currentCat === '학급운영' || currentCat === '행사자료') ? '구분' : '과목';
+        return (currentCat === '학급운영' || currentCat === '안내사항' || currentCat === '행사자료') ? '구분' : '과목';
     }
     function getTopOptionList() {
         if (currentCat === '학급운영') return allClassGroups.slice();
-        if (currentCat === '행사자료') return allEventGroups.slice();
+        if (currentCat === '안내사항' || currentCat === '행사자료') return allEventGroups.slice();
         return allSubjects.slice();
     }
     function renderSubjects() {
@@ -317,7 +317,10 @@
 
         let filtered = allPosts.filter(p => {
             if (currentCat === 'pending') return p.status === 'pending';
-            const matchCat = currentCat === 'all' || p.category === currentCat;
+            const matchCat =
+                currentCat === 'all' ||
+                p.category === currentCat ||
+                (currentCat === '안내사항' && p.category === '행사자료');
             const matchSub = !isTopOptionFilterEnabled() || currentSub === 'all' || p.subject === currentSub;
             const q = String(currentSearch || '').trim().toLowerCase();
             const haystack = [
@@ -350,7 +353,7 @@
 
             card.innerHTML = `
                 <div class="card-content">
-                    <span style="font-size:0.7rem; color:var(--accent); font-weight:bold;">#${post.category}${post.category === '수업자료' ? ' · ' + (post.material_type || '기타') : ''} | ${post.subject || '공통'}</span>
+                    <span style="font-size:0.7rem; color:var(--accent); font-weight:bold;">#${post.category === '행사자료' ? '안내사항' : post.category}${post.category === '수업자료' ? ' · ' + (post.material_type || '기타') : ''} | ${post.subject || '공통'}</span>
                     <h3 style="margin:5px 0;">${post.title}</h3>
                     ${children.length > 0 ? `<span style="font-size:0.7rem; color:#64748b;">📦 포함된 자료: ${children.length}개</span>` : ''}
                 </div>
