@@ -41,7 +41,6 @@
         .card-content { padding: 20px; flex-grow: 1; cursor: pointer; }
         .card-footer { padding: 15px 20px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
 
-        /* Admin Controls in Card */
         .admin-actions { display: flex; gap: 5px; }
         .btn-approve { background: #10b981; color: white; font-size: 0.7rem; padding: 4px 8px; border-radius: 4px; }
         .btn-delete { background: #ef4444; color: white; font-size: 0.7rem; padding: 4px 8px; border-radius: 4px; }
@@ -79,7 +78,7 @@
             <button class="filter-btn" data-cat="수업TIP">수업TIP</button>
             <button class="filter-btn" data-cat="문제해결">문제해결</button>
             <button class="filter-btn" data-cat="행사자료">행사자료</button>
-            <!-- 관리자 전용 탭 (숨겨져 있음) -->
+            <!-- 관리자용 탭 -->
             <button id="admin-tab" class="filter-btn admin-tab hidden" data-cat="pending">
                 승인 대기 <span id="pending-count" class="badge">0</span>
             </button>
@@ -94,7 +93,6 @@
     </div>
 </main>
 
-<!-- 등록 모달 -->
 <div id="submit-modal" class="hidden">
     <div class="modal-content">
         <h3>새 수업자료 등록 신청</h3>
@@ -116,7 +114,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, query, where, getDocs, serverTimestamp, orderBy, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, query, where, getDocs, serverTimestamp, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
     const firebaseConfig = {
@@ -137,18 +135,16 @@
     const ADMIN_EMAIL = 'kocvdv38@gmail.com';
 
     let currentCat = 'all';
-    let isAdminMode = false;
 
-    // UI 요소
     const postsContainer = document.getElementById('posts-container');
     const adminTab = document.getElementById('admin-tab');
     const pendingCountBadge = document.getElementById('pending-count');
 
-    // [함수] 데이터 렌더링
+    // [함수] 카드 렌더링
     function renderCards(snapshot) {
         postsContainer.innerHTML = '';
         if (snapshot.empty) {
-            postsContainer.innerHTML = '<p>해당하는 자료가 없습니다.</p>';
+            postsContainer.innerHTML = '<p>아직 등록된 자료가 없습니다.</p>';
             return;
         }
         snapshot.forEach(res => {
@@ -156,8 +152,8 @@
             const card = document.createElement('div');
             card.className = 'card';
             
-            // 관리자 모드일 때는 승인/거절 버튼 추가
-            const adminButtons = (isAdminMode && data.status === 'pending') ? `
+            const isPending = data.status === 'pending';
+            const footerContent = (isPending && auth.currentUser?.email === ADMIN_EMAIL) ? `
                 <div class="admin-actions">
                     <button class="btn btn-approve" onclick="updatePostStatus('${res.id}', 'approved')">승인</button>
                     <button class="btn btn-delete" onclick="updatePostStatus('${res.id}', 'delete')">거절</button>
@@ -172,59 +168,62 @@
                 </div>
                 <div class="card-footer">
                     <span style="font-size:0.8rem; color:#94a3b8;">by ${data.author.split('@')[0]}</span>
-                    ${adminButtons}
+                    ${footerContent}
                 </div>
             `;
             postsContainer.appendChild(card);
         });
     }
 
-    // [함수] 데이터 불러오기 (실시간 감시)
-    function loadData(category) {
+    // [함수] 데이터 로드 (정렬 제거로 로딩 이슈 해결)
+    async function loadData(category) {
+        postsContainer.innerHTML = '<p>자료를 불러오는 중입니다...</p>';
         let q;
-        isAdminMode = (category === 'pending');
-        document.getElementById('view-title').innerText = isAdminMode ? "검토 대기 중인 자료" : "공개된 자료";
+        document.getElementById('view-title').innerText = category === 'pending' ? "검토 대기 중인 자료" : "공개된 자료";
 
-        if (isAdminMode) {
-            q = query(collection(db, "posts"), where("status", "==", "pending"), orderBy("created_at", "desc"));
+        if (category === 'pending') {
+            q = query(collection(db, "posts"), where("status", "==", "pending"));
         } else if (category === 'all') {
-            q = query(collection(db, "posts"), where("status", "==", "approved"), orderBy("created_at", "desc"));
+            q = query(collection(db, "posts"), where("status", "==", "approved"));
         } else {
-            q = query(collection(db, "posts"), where("status", "==", "approved"), where("category", "==", category), orderBy("created_at", "desc"));
+            q = query(collection(db, "posts"), where("status", "==", "approved"), where("category", "==", category));
         }
 
-        getDocs(q).then(renderCards);
+        try {
+            const snapshot = await getDocs(q);
+            renderCards(snapshot);
+        } catch (err) {
+            console.error(err);
+            postsContainer.innerHTML = '<p style="color:red;">오류 발생: ' + err.message + '</p>';
+        }
     }
 
-    // [관리자 전용] 대기 숫자 실시간 업데이트
+    // [함수] 대기 숫자 실시간 감시 (관리자 전용)
     function watchPendingCount() {
         const q = query(collection(db, "posts"), where("status", "==", "pending"));
         onSnapshot(q, (snapshot) => {
-            const count = snapshot.size;
-            pendingCountBadge.innerText = count;
-            if (count > 0) {
-                adminTab.classList.remove('hidden');
-            } else if (currentCat !== 'pending') {
-                // 대기가 0이고 현재 보고 있는 탭이 승인대기 탭이 아닐 때만 숨김
-                adminTab.classList.add('hidden');
-            }
+            pendingCountBadge.innerText = snapshot.size;
         });
     }
 
-    // [전역 함수] 승인/삭제 처리
+    // [전역 함수] 승인/삭제
     window.updatePostStatus = async (id, action) => {
-        if (action === 'delete') {
-            if (confirm('삭제하시겠습니까?')) await deleteDoc(doc(db, "posts", id));
-        } else {
-            await updateDoc(doc(db, "posts", id), { status: 'approved' });
-            alert('승인되었습니다!');
+        try {
+            if (action === 'delete') {
+                if (confirm('정말 삭제하시겠습니까?')) await deleteDoc(doc(db, "posts", id));
+            } else {
+                await updateDoc(doc(db, "posts", id), { status: 'approved' });
+                alert('승인되었습니다!');
+            }
+            loadData(currentCat);
+        } catch (err) {
+            alert("처리 중 오류가 발생했습니다: " + err.message);
         }
-        loadData('pending');
     };
 
-    // [이벤트] 카테고리 필터 클릭
+    // 필터 이벤트
     document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.onclick = (e) => {
+        btn.onclick = () => {
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             currentCat = btn.getAttribute('data-cat');
@@ -232,12 +231,12 @@
         };
     });
 
-    // [이벤트] 로그인 상태 감시
     onAuthStateChanged(auth, (user) => {
         if (user) {
             document.getElementById('login-btn').classList.add('hidden');
             document.getElementById('user-ui').classList.remove('hidden');
             if (user.email === ADMIN_EMAIL) {
+                adminTab.classList.remove('hidden'); // 관리자면 항상 보이게
                 watchPendingCount();
             }
         } else {
@@ -248,7 +247,6 @@
         loadData('all');
     });
 
-    // 로그인/로그아웃/모달/등록 로직 (동일)
     document.getElementById('login-btn').onclick = () => signInWithPopup(auth, provider);
     document.getElementById('logout-btn').onclick = () => signOut(auth);
     document.getElementById('open-submit-btn').onclick = () => document.getElementById('submit-modal').classList.remove('hidden');
@@ -268,7 +266,7 @@
         await addDoc(collection(db, "posts"), newPost);
         alert('신청 완료! 관리자 승인 후 게시됩니다.');
         document.getElementById('submit-modal').classList.add('hidden');
-        location.reload();
+        loadData('all');
     };
 
     window.copyLink = (url) => { navigator.clipboard.writeText(url); alert('복사되었습니다!'); };
