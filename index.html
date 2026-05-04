@@ -58,6 +58,7 @@
         .badge { background: var(--admin-color); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 3px; }
         .admin-tab { border: 2px solid var(--admin-color) !important; color: var(--admin-color); }
         .hidden { display: none !important; }
+        .field-label { font-size: 0.85rem; font-weight: bold; margin-top: 12px; display: block; color: var(--primary); }
     </style>
 </head>
 <body>
@@ -104,15 +105,24 @@
         <h3 id="modal-title" style="margin-top:0;">자료 등록/수정</h3>
         <form id="resource-form">
             <input type="hidden" id="edit-id">
-            <label>제목</label><input type="text" id="form-title" required>
-            <label style="margin-top:12px; display:block;">카테고리</label>
+            
+            <label class="field-label">메인 카드 제목 (홈 화면 표시)</label>
+            <input type="text" id="form-title" required placeholder="예: NX를 활용한 모델링 자료">
+            
+            <label class="field-label">묶음 내부 제목 (모달 내 표시)</label>
+            <input type="text" id="form-group-title" placeholder="묶음 창에서 보여줄 제목 (비워두면 메인 제목과 동일)">
+            
+            <label class="field-label">카테고리</label>
             <select id="form-category">
                 <option>수업자료</option><option>학급운영</option><option>수업TIP</option><option>문제해결</option><option>행사자료</option>
             </select>
-            <label style="margin-top:12px; display:block;">링크 (URL - 선택사항)</label>
+            
+            <label class="field-label">링크 (URL - 선택사항)</label>
             <input type="url" id="form-url" placeholder="https://...">
-            <label style="margin-top:12px; display:block;">내용/설명 (텍스트만 등록 시 필수)</label>
-            <textarea id="form-desc" rows="8" placeholder="상세 내용이나 팁을 입력하세요."></textarea>
+            
+            <label class="field-label">내용/설명</label>
+            <textarea id="form-desc" rows="6" placeholder="상세 내용이나 팁을 입력하세요."></textarea>
+            
             <div style="display: flex; gap: 10px; margin-top: 25px;">
                 <button type="submit" class="btn btn-submit" style="flex: 1;">저장</button>
                 <button type="button" onclick="closeModal('form-modal')" class="btn" style="flex: 1; background: #eee;">취소</button>
@@ -164,7 +174,6 @@
     let allPosts = [];
     let currentCat = 'all';
 
-    // 메인 렌더링 함수
     function render() {
         const postsContainer = document.getElementById('posts-container');
         postsContainer.innerHTML = '';
@@ -188,10 +197,10 @@
                 <div class="card-content">
                     <span style="font-size:0.7rem; color:var(--accent); font-weight:bold;">#${post.category} ${children.length > 0 ? `+${children.length}` : ''}</span>
                     <h3>${post.title}</h3>
-                    <p style="font-size:0.85rem; color:#64748b; margin:0;">${post.description ? post.description.substring(0, 60) + '...' : '링크 자료입니다.'}</p>
+                    <p style="font-size:0.85rem; color:#64748b; margin:0;">${post.description ? post.description.substring(0, 50) + '...' : '연결된 자료가 있습니다.'}</p>
                 </div>
                 <div class="card-footer">
-                    <span style="font-size:0.75rem; color:#94a3b8;">${post.author ? post.author.split('@')[0] : '익명'}</span>
+                    <span style="font-size:0.75rem; color:#94a3b8;">${post.author ? post.author.split('@')[0] : '사용자'}</span>
                     <div style="display:flex; gap:5px;">
                         ${isAdmin ? `<button class="btn btn-mini" style="background:#64748b; color:white;" onclick="event.stopPropagation(); openEditModal('${post.id}')">수정</button>` : ''}
                         <button class="btn btn-mini" style="background:#e2e8f0;">${post.link_url ? '연결' : '보기'}</button>
@@ -202,7 +211,6 @@
         });
     }
 
-    // 카드 클릭 시 처리 (묶음 여부 확인)
     window.handleCardClick = (id) => {
         const isAdmin = auth.currentUser?.email === ADMIN_EMAIL;
         const post = allPosts.find(p => p.id === id);
@@ -211,11 +219,13 @@
         if (children.length > 0) {
             const listContainer = document.getElementById('group-items-list');
             listContainer.innerHTML = '';
+            // 묶음 리스트 구성: 각 항목의 group_title이 있으면 그것을 쓰고, 없으면 title을 씀
             [post, ...children].forEach(item => {
+                const itemLabel = item.group_title || item.title;
                 const div = document.createElement('div');
                 div.className = 'sub-item';
                 div.innerHTML = `
-                    <div style="flex-grow:1; font-weight:500;">${item.title}</div>
+                    <div style="flex-grow:1; font-weight:500;">${itemLabel}</div>
                     <div class="sub-item-btns">
                         ${isAdmin ? `<button class="btn btn-mini" style="background:#64748b; color:white;" onclick="openEditModal('${item.id}')">수정</button>` : ''}
                         <button class="btn btn-mini" style="background:var(--accent); color:white;" onclick="handleSubItemClick('${item.id}')">
@@ -230,28 +240,24 @@
         }
     };
 
-    // 개별 항목 클릭 (URL 또는 텍스트 뷰어)
     window.handleSubItemClick = (id) => {
         const post = allPosts.find(p => p.id === id);
         if (!post) return;
-
         if (post.link_url && post.link_url.trim() !== "") {
             window.open(post.link_url, '_blank');
         } else {
             document.getElementById('viewer-title').innerText = post.title;
-            document.getElementById('viewer-content').innerText = post.description || "내용이 없습니다.";
+            document.getElementById('viewer-content').innerText = post.description || "상세 내용이 없습니다.";
             document.getElementById('text-viewer-modal').classList.remove('hidden');
         }
     };
 
-    // 실시간 데이터 수신
     onSnapshot(collection(db, "posts"), (snapshot) => {
         allPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         document.getElementById('pending-count').innerText = allPosts.filter(p => p.status === 'pending').length;
         render();
     });
 
-    // 인증 상태 변경
     onAuthStateChanged(auth, (user) => {
         if (user) {
             if (user.email === ADMIN_EMAIL) document.getElementById('admin-tab').classList.remove('hidden');
@@ -264,32 +270,28 @@
         }
     });
 
-    // 필터 버튼 클릭 및 설명 표시
     document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.onclick = () => {
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            
             const desc = btn.getAttribute('data-desc');
             const descArea = document.getElementById('category-description');
-            if(desc) {
-                descArea.innerText = `💡 ${desc}`;
-                descArea.style.display = 'block';
-            } else {
-                descArea.style.display = 'none';
-            }
-            
+            if(desc) { descArea.innerText = `💡 ${desc}`; descArea.style.display = 'block'; }
+            else { descArea.style.display = 'none'; }
             currentCat = btn.getAttribute('data-cat');
             render();
         };
     });
 
-    // 자료 저장 (등록 및 수정)
     document.getElementById('resource-form').onsubmit = async (e) => {
         e.preventDefault();
         const editId = document.getElementById('edit-id').value;
+        const mainTitle = document.getElementById('form-title').value;
+        const groupTitle = document.getElementById('form-group-title').value || mainTitle; // 입력 안하면 메인제목 따라감
+
         const data = {
-            title: document.getElementById('form-title').value,
+            title: mainTitle,
+            group_title: groupTitle, // 비연동을 위한 묶음 전용 제목
             category: document.getElementById('form-category').value,
             link_url: document.getElementById('form-url').value.trim(),
             description: document.getElementById('form-desc').value || ""
@@ -298,7 +300,7 @@
         try {
             if (editId) {
                 await updateDoc(doc(db, "posts", editId), data);
-                alert("수정되었습니다.");
+                alert("수정 완료!");
             } else {
                 await addDoc(collection(db, "posts"), { 
                     ...data, 
@@ -306,25 +308,23 @@
                     status: "pending", 
                     created_at: serverTimestamp() 
                 });
-                alert("등록되었습니다. 관리자 승인 후 공개됩니다.");
+                alert("등록 완료! 관리자 승인 대기 중입니다.");
             }
             closeModal('form-modal');
-        } catch (err) {
-            alert("오류가 발생했습니다.");
-        }
+        } catch (err) { alert("저장 실패"); }
     };
 
-    // 수정 모달 열기
     window.openEditModal = (id) => {
         const post = allPosts.find(p => p.id === id);
         if(!post) return;
         document.getElementById('edit-id').value = id;
         document.getElementById('form-title').value = post.title;
+        document.getElementById('form-group-title').value = post.group_title || post.title;
         document.getElementById('form-category').value = post.category;
         document.getElementById('form-url').value = post.link_url || "";
         document.getElementById('form-desc').value = post.description || "";
         
-        closeModal('group-modal'); // 묶음 창에서 수정을 눌렀을 경우 대비
+        closeModal('group-modal');
         document.getElementById('form-modal').classList.remove('hidden');
     };
 
