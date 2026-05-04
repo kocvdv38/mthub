@@ -44,7 +44,8 @@
             font-weight: 600;
             color: var(--text);
         }
-        #resource-form #form-subject-wrap {
+        #resource-form #form-subject-wrap,
+        #resource-form #form-material-type-wrap {
             display: flex;
             flex-direction: column;
             align-items: stretch;
@@ -61,7 +62,11 @@
             min-width: 0;
             width: 100%;
         }
-        #resource-form #form-subject-wrap .form-subject-row {
+        #resource-form #form-material-type-wrap {
+            max-height: 160px;
+        }
+        #resource-form #form-subject-wrap .form-subject-row,
+        #resource-form #form-material-type-wrap .form-subject-row {
             display: flex;
             flex-direction: row;
             align-items: flex-start;
@@ -75,10 +80,12 @@
             border-radius: 6px;
             text-align: left;
         }
-        #resource-form #form-subject-wrap .form-subject-row:hover {
+        #resource-form #form-subject-wrap .form-subject-row:hover,
+        #resource-form #form-material-type-wrap .form-subject-row:hover {
             background: rgba(59, 130, 246, 0.07);
         }
-        #resource-form #form-subject-wrap input[type="checkbox"] {
+        #resource-form #form-subject-wrap input[type="checkbox"],
+        #resource-form #form-material-type-wrap input[type="checkbox"] {
             width: 1.125rem !important;
             height: 1.125rem !important;
             min-width: 1.125rem !important;
@@ -90,7 +97,8 @@
             accent-color: var(--accent);
             box-sizing: border-box;
         }
-        #resource-form #form-subject-wrap label.form-subject-cb-text {
+        #resource-form #form-subject-wrap label.form-subject-cb-text,
+        #resource-form #form-material-type-wrap label.form-subject-cb-text {
             flex: 1 1 auto;
             min-width: min-content;
             margin: 0;
@@ -105,7 +113,8 @@
             overflow: visible;
             white-space: normal;
         }
-        #resource-form #form-subject-wrap .form-subject-empty {
+        #resource-form #form-subject-wrap .form-subject-empty,
+        #resource-form #form-material-type-wrap .form-subject-empty {
             margin: 0;
             padding: 12px 10px;
             font-size: 0.85rem;
@@ -138,6 +147,20 @@
         .btn-mini { padding: 4px 8px; font-size: 0.7rem; border-radius: 4px; border: none; cursor: pointer; }
         .badge { background: var(--admin-color); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 3px; }
         .hidden { display: none !important; }
+
+        .bundle-author-longpress {
+            cursor: pointer;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: manipulation;
+            border-bottom: 1px dashed transparent;
+        }
+        .bundle-author-longpress:active {
+            opacity: 0.85;
+        }
+        #bundle-authors-body ul {
+            list-style: disc;
+        }
 
         .draggable-sub { cursor: grab; transition: all 0.2s; }
         .draggable-sub.dragging { opacity: 0.5; background: #e2e8f0; }
@@ -200,13 +223,9 @@
                 <option>학급운영</option><option>수업자료</option><option>문제해결</option><option>안내사항</option>
             </select>
             <div id="material-type-wrap" style="display:none;">
-                <label>수업자료 구분</label>
-                <select id="form-material-type">
-                    <option>PPT</option>
-                    <option>학습자료</option>
-                    <option>평가</option>
-                    <option>기타</option>
-                </select>
+                <div class="form-field-label">수업자료 구분</div>
+                <div id="form-material-type-wrap" aria-label="수업자료 구분 선택"></div>
+                <p style="font-size:12px;color:#64748b;margin:6px 0 0 0;">복수 선택 가능합니다.</p>
             </div>
             <div id="form-subject-label" class="form-field-label">과목 선택</div>
             <div id="form-subject-wrap" aria-labelledby="form-subject-label"></div>
@@ -227,6 +246,16 @@
         <h3 style="margin-top:0;">📦 자료 묶음</h3>
         <div id="group-items-list"></div>
         <button onclick="closeModal('group-modal')" class="btn" style="width:100%; margin-top:20px; background:#eee;">닫기</button>
+    </div>
+</div>
+
+<!-- 묶음 등록자별 목록 (부모 카드 작성자 영역 롱프레스) -->
+<div id="bundle-authors-modal" class="modal hidden">
+    <div class="modal-content" style="max-width: 520px;">
+        <h3 style="margin-top:0;">등록자별 자료</h3>
+        <p style="font-size:0.8rem;color:#64748b;margin:0 0 12px 0;">묶음에 포함된 부모·자식 자료의 등록 계정과 제목입니다.</p>
+        <div id="bundle-authors-body" style="max-height: 60vh; overflow-y: auto;"></div>
+        <button type="button" onclick="closeModal('bundle-authors-modal')" class="btn" style="width:100%; margin-top:16px; background:#eee;">닫기</button>
     </div>
 </div>
 
@@ -336,6 +365,57 @@
         if (!s) return [];
         if (s.indexOf(',') >= 0) return s.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
         return [s];
+    }
+    const MATERIAL_TYPE_OPTIONS = ['PPT', '학습자료', '평가', '기타'];
+    function getPostMaterialTypesList(post) {
+        if (!post) return [];
+        if (Array.isArray(post.material_types) && post.material_types.length) {
+            return post.material_types.map(function (t) { return String(t || '').trim(); }).filter(Boolean);
+        }
+        const s = String(post.material_type || '').trim();
+        if (!s) return [];
+        if (s.indexOf(',') >= 0) return s.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+        return [s];
+    }
+    function getCheckedMaterialTypesFromDom() {
+        const wrap = document.getElementById('form-material-type-wrap');
+        if (!wrap) return [];
+        return Array.prototype.map.call(wrap.querySelectorAll('input[name="form-material-type-cb"]:checked'), function (cb) { return cb.value; }).filter(Boolean);
+    }
+    function normalizeMaterialTypeSelection(selectedValues) {
+        if (selectedValues === undefined) return null;
+        if (selectedValues == null || selectedValues === '') return [];
+        if (Array.isArray(selectedValues)) {
+            return selectedValues.map(function (t) { return String(t || '').trim(); }).filter(Boolean);
+        }
+        return [String(selectedValues).trim()].filter(Boolean);
+    }
+    function renderMaterialTypeCheckboxes(selectedValues) {
+        const wrap = document.getElementById('form-material-type-wrap');
+        if (!wrap) return;
+        const normalized = normalizeMaterialTypeSelection(selectedValues);
+        const selectedSet = {};
+        (normalized === null ? getCheckedMaterialTypesFromDom() : normalized).forEach(function (t) { selectedSet[t] = true; });
+        wrap.innerHTML = '';
+        var rowIdx = 0;
+        MATERIAL_TYPE_OPTIONS.forEach(function (opt) {
+            const row = document.createElement('div');
+            row.className = 'form-subject-row';
+            const cb = document.createElement('input');
+            const cid = 'form-material-type-cb-' + String(rowIdx++);
+            cb.id = cid;
+            cb.type = 'checkbox';
+            cb.name = 'form-material-type-cb';
+            cb.value = opt;
+            if (selectedSet[opt]) cb.checked = true;
+            const lbl = document.createElement('label');
+            lbl.className = 'form-subject-cb-text';
+            lbl.htmlFor = cid;
+            lbl.textContent = opt;
+            row.appendChild(cb);
+            row.appendChild(lbl);
+            wrap.appendChild(row);
+        });
     }
     function getCheckedFormSubjectsFromDom() {
         const wrap = document.getElementById('form-subject-wrap');
@@ -487,6 +567,10 @@
         if (!catEl || !wrap) return;
         const on = String(catEl.value || '') === '수업자료';
         wrap.style.display = on ? 'block' : 'none';
+        if (on) {
+            renderMaterialTypeCheckboxes(undefined);
+            if (!getCheckedMaterialTypesFromDom().length) renderMaterialTypeCheckboxes(['PPT']);
+        }
         renderFormSubjectOptions();
     };
 
@@ -522,6 +606,106 @@
         }
     }
 
+    function escapeHtmlUi(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+    function authorAccountLocal(email) {
+        const t = String(email || '').trim();
+        if (!t) return '(알 수 없음)';
+        const i = t.indexOf('@');
+        return i >= 0 ? t.slice(0, i) : t;
+    }
+    function uniqueAuthorKey(email) {
+        const t = String(email || '').trim();
+        return t || '(등록자 없음)';
+    }
+    function buildCardAuthorFooterHtml(post, children) {
+        const parentShort = escapeHtmlUi(authorAccountLocal(post.author));
+        if (!children || children.length === 0) {
+            return '<span style="font-size:0.75rem; color:#94a3b8;">' + parentShort + '</span>';
+        }
+        const all = [post].concat(children);
+        const uniq = {};
+        all.forEach(function (it) {
+            uniq[uniqueAuthorKey(it.author)] = true;
+        });
+        const n = Object.keys(uniq).length;
+        const common = '<span class="bundle-author-longpress" role="button" tabindex="0" title="0.5초 이상 누르면 등록자별 자료 목록" style="font-size:0.75rem; color:#94a3b8;">';
+        if (n >= 2) {
+            return common + parentShort + ' <span style="font-weight:600;color:#64748b;">외</span></span>';
+        }
+        return common + parentShort + '</span>';
+    }
+    function attachBundleAuthorLongPress(el, postId) {
+        if (!el || !postId) return;
+        let pressTimer = null;
+        let longConsumed = false;
+        function clearPress() {
+            if (pressTimer) {
+                clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+        }
+        el.addEventListener('pointerdown', function () {
+            longConsumed = false;
+            clearPress();
+            pressTimer = setTimeout(function () {
+                pressTimer = null;
+                longConsumed = true;
+                openBundleAuthorsModal(postId);
+            }, 500);
+        });
+        el.addEventListener('pointerup', clearPress);
+        el.addEventListener('pointerleave', clearPress);
+        el.addEventListener('pointercancel', clearPress);
+        el.addEventListener('click', function (e) {
+            if (longConsumed) {
+                longConsumed = false;
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
+    }
+    window.openBundleAuthorsModal = function (postId) {
+        const root = allPosts.find(function (p) { return p.id === postId; });
+        if (!root) return;
+        const kids = allPosts.filter(function (p) { return p.parentId === postId; });
+        const items = [root].concat(kids);
+        const map = {};
+        items.forEach(function (it) {
+            const em = uniqueAuthorKey(it.author);
+            if (!map[em]) map[em] = [];
+            const isParent = it.id === postId;
+            const title = String(it.title || '').trim() || '(제목 없음)';
+            map[em].push({
+                title: title,
+                tag: isParent ? '묶음 대표(부모)' : '포함 자료'
+            });
+        });
+        const keys = Object.keys(map).sort(function (a, b) { return a.localeCompare(b, 'ko'); });
+        let html = '';
+        keys.forEach(function (em) {
+            html += '<div style="margin-bottom:14px;border-bottom:1px solid #e2e8f0;padding-bottom:10px;">';
+            html += '<div style="font-weight:700;color:var(--primary);font-size:0.88rem;word-break:break-all;">' + escapeHtmlUi(em) + '</div>';
+            html += '<ul style="margin:6px 0 0 20px;padding:0;color:#475569;font-size:0.86rem;">';
+            map[em].forEach(function (row) {
+                html += '<li style="margin:4px 0;">';
+                html += '<span style="font-size:0.72rem;color:#94a3b8;background:#f1f5f9;padding:1px 6px;border-radius:4px;margin-right:6px;">' + escapeHtmlUi(row.tag) + '</span>';
+                html += escapeHtmlUi(row.title);
+                html += '</li>';
+            });
+            html += '</ul></div>';
+        });
+        const body = document.getElementById('bundle-authors-body');
+        const modal = document.getElementById('bundle-authors-modal');
+        if (body) body.innerHTML = html;
+        if (modal) modal.classList.remove('hidden');
+    };
+
     // --- 렌더링 ---
     function render() {
         const container = document.getElementById('posts-container');
@@ -538,10 +722,12 @@
             const subList = getPostSubjectsList(p);
             const matchSub = !isTopOptionFilterEnabled() || currentSub === 'all' || subList.indexOf(currentSub) >= 0;
             const q = String(currentSearch || '').trim().toLowerCase();
+            const matList = getPostMaterialTypesList(p);
             const haystack = [
                 subList.join(' '),
                 String(p.subject || ''),         // 과목/구분(단일·콤마 호환)
-                String(p.material_type || ''),   // 수업자료 구분(PPT/학습자료/평가/기타)
+                matList.join(' '),
+                String(p.material_type || ''),   // 수업자료 구분(단일·콤마 호환)
                 String(p.title || ''),           // 제목
                 String(p.description || '')      // 내용
             ].join(' ').toLowerCase();
@@ -569,23 +755,29 @@
 
             card.innerHTML = `
                 <div class="card-content">
-                    <span style="font-size:0.7rem; color:var(--accent); font-weight:bold;">#${post.category === '행사자료' ? '안내사항' : post.category}${post.category === '수업자료' ? ' · ' + (post.material_type || '기타') : ''} | ${getPostSubjectsList(post).join(', ') || '공통'}</span>
+                    <span style="font-size:0.7rem; color:var(--accent); font-weight:bold;">#${post.category === '행사자료' ? '안내사항' : post.category}${post.category === '수업자료' ? ' · ' + (getPostMaterialTypesList(post).join(', ') || '기타') : ''} | ${getPostSubjectsList(post).join(', ') || '공통'}</span>
                     <h3 style="margin:5px 0;">${post.title}</h3>
                     ${children.length > 0 ? `<span style="font-size:0.7rem; color:#64748b;">📦 포함된 자료: ${children.length}개</span>` : ''}
                 </div>
                 <div class="card-footer">
-                    <span style="font-size:0.75rem; color:#94a3b8;">${post.author?.split('@')[0]}</span>
-                    <div style="display:flex; gap:4px;">
+                    ${buildCardAuthorFooterHtml(post, children)}
+                    <div style="display:flex; flex-wrap:wrap; gap:4px; justify-content:flex-end;">
+                        ${(post.link_url && String(post.link_url).trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--accent); color:white;" onclick="event.stopPropagation(); window.open(${JSON.stringify(String(post.link_url).trim())}, '_blank')">열기</button>` : ''}
+                        ${(String(post.description || '').trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--success); color:white;" onclick="event.stopPropagation(); showTextDetail('${post.id}')">내용</button>` : ''}
                         ${isAdmin || user?.email === post.author ? 
-                            `<button class="btn btn-mini" style="background:#64748b; color:white;" 
+                            `<button type="button" class="btn btn-mini" style="background:#64748b; color:white;" 
                                 onclick="event.stopPropagation(); openEditModal('${post.id}')">
                                 ${allPosts.some(p => p.parentId === post.id) ? '📂 폴더 수정' : '수정'} 
                             </button>` : ''}
-                        ${isAdmin ? `<button class="btn btn-mini" style="background:var(--admin-color); color:white;" onclick="event.stopPropagation(); deletePost('${post.id}')">삭제</button>` : ''}
+                        ${isAdmin ? `<button type="button" class="btn btn-mini" style="background:var(--admin-color); color:white;" onclick="event.stopPropagation(); deletePost('${post.id}')">삭제</button>` : ''}
                     </div>
                 </div>
             `;
             container.appendChild(card);
+            if (children.length > 0) {
+                const authEl = card.querySelector('.bundle-author-longpress');
+                if (authEl) attachBundleAuthorLongPress(authEl, post.id);
+            }
         });
     }
 
@@ -630,13 +822,11 @@ window.handleCardClick = (id) => {
                     ${isAdmin ? `<span style="color:#cbd5e1; cursor:grab; flex-shrink:0;">☰</span>` : ''}
                     <span class="sub-item-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.title}</span>
                 </div>
-                <div style="display:flex; gap:4px; flex-shrink:0; margin-left:10px;">
-                    ${isAdmin ? `<button class="btn btn-mini" style="background:var(--warning); color:white;" onclick="event.stopPropagation(); openEditModal('${item.id}')">수정</button>` : ''}
-                    ${item.link_url 
-                        ? `<button class="btn btn-mini" style="background:var(--accent); color:white;" onclick="window.open('${item.link_url}','_blank')">열기</button>` 
-                        : `<button class="btn btn-mini" style="background:var(--success); color:white;" onclick="showTextDetail('${item.id}')">내용</button>`
-                    }
-                    ${isAdmin && item.parentId ? `<button class="btn btn-mini" style="background:#cbd5e1;" onclick="removeFromGroup('${item.id}')">해제</button>` : ''}
+                <div style="display:flex; flex-wrap:wrap; gap:4px; flex-shrink:0; margin-left:10px; justify-content:flex-end;">
+                    ${isAdmin ? `<button type="button" class="btn btn-mini" style="background:var(--warning); color:white;" onclick="event.stopPropagation(); openEditModal('${item.id}')">수정</button>` : ''}
+                    ${(item.link_url && String(item.link_url).trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--accent); color:white;" onclick="event.stopPropagation(); window.open(${JSON.stringify(String(item.link_url).trim())}, '_blank')">열기</button>` : ''}
+                    ${(String(item.description || '').trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--success); color:white;" onclick="event.stopPropagation(); showTextDetail('${item.id}')">내용</button>` : ''}
+                    ${isAdmin && item.parentId ? `<button type="button" class="btn btn-mini" style="background:#cbd5e1;" onclick="event.stopPropagation(); removeFromGroup('${item.id}')">해제</button>` : ''}
                 </div>
             `;
             list.appendChild(div);
@@ -676,12 +866,16 @@ window.showTextDetail = (id) => {
         const editId = document.getElementById('edit-id').value;
         const subjects = Array.prototype.map.call(document.querySelectorAll('#form-subject-wrap input[name="form-subject-cb"]:checked'), function (x) { return x.value; }).filter(Boolean);
         const subject = subjects.length ? subjects.join(', ') : '';
+        const catVal = document.getElementById('form-category').value;
+        const materialTypes = (catVal === '수업자료')
+            ? Array.prototype.map.call(document.querySelectorAll('#form-material-type-wrap input[name="form-material-type-cb"]:checked'), function (x) { return x.value; }).filter(Boolean)
+            : [];
+        const materialTypeStr = materialTypes.length ? materialTypes.join(', ') : '';
         const data = {
             title: document.getElementById('form-title').value,
-            category: document.getElementById('form-category').value,
-            material_type: (document.getElementById('form-category').value === '수업자료')
-                ? (document.getElementById('form-material-type').value || '기타')
-                : "",
+            category: catVal,
+            material_types: materialTypes,
+            material_type: (catVal === '수업자료') ? materialTypeStr : '',
             subjects: subjects,
             subject: subject,
             link_url: document.getElementById('form-url').value,
@@ -740,8 +934,8 @@ window.openEditModal = (id) => {
 
     document.getElementById('form-title').value = post.title;
     document.getElementById('form-category').value = post.category;
-    document.getElementById('form-material-type').value = (post.material_type || '기타');
     if (typeof toggleMaterialTypeField === 'function') toggleMaterialTypeField();
+    renderMaterialTypeCheckboxes(getPostMaterialTypesList(post));
     renderFormSubjectOptions(getPostSubjectsList(post));
     document.getElementById('form-url').value = post.link_url || "";
     document.getElementById('form-desc').value = post.description || "";
@@ -777,8 +971,7 @@ window.openEditModal = (id) => {
     document.getElementById('open-submit-btn').onclick = () => { 
         document.getElementById('edit-id').value = ""; 
         document.getElementById('resource-form').reset(); 
-        const mt = document.getElementById('form-material-type');
-        if (mt) mt.value = 'PPT';
+        renderMaterialTypeCheckboxes(['PPT']);
         renderFormSubjectOptions([]);
         if (typeof toggleMaterialTypeField === 'function') toggleMaterialTypeField();
         document.getElementById('form-modal').classList.remove('hidden'); 
