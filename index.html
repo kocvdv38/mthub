@@ -7,7 +7,7 @@
     <style>
         :root {
             --primary: #1e40af; --accent: #3b82f6; --bg: #f1f5f9;
-            --card: #ffffff; --text: #334155; --admin: #f59e0b;
+            --card: #ffffff; --text: #334155; --admin-color: #ef4444;
         }
 
         body { font-family: 'Pretendard', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; line-height: 1.6; }
@@ -23,41 +23,42 @@
         .btn-login { background: white; color: var(--primary); }
         .btn-submit { background: var(--accent); color: white; }
         .btn-logout { background: transparent; color: white; border: 1px solid white; font-size: 0.8rem; }
-        .btn:hover { opacity: 0.9; }
-
-        /* Admin Section */
-        .admin-section { background: #fef3c7; border: 2px dashed var(--admin); padding: 20px; border-radius: 12px; margin-bottom: 30px; }
-        .admin-card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-
-        /* Main UI */
+        
+        /* Tab System */
         .search-section { background: white; padding: 2rem 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 2rem; }
-        .filter-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 1rem; }
-        .filter-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid #cbd5e1; background: white; cursor: pointer; }
-        .filter-btn.active { background: var(--primary); color: white; }
+        .filter-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 1rem; align-items: center; }
+        .filter-btn { padding: 8px 16px; border-radius: 20px; border: 1px solid #cbd5e1; background: white; cursor: pointer; position: relative; display: flex; align-items: center; gap: 5px; }
+        .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        
+        /* Admin Badge */
+        .badge { background: var(--admin-color); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; font-weight: bold; min-width: 12px; text-align: center; }
+        .admin-tab { border: 2px solid var(--admin-color); color: var(--admin-color); font-weight: bold; }
+        .admin-tab.active { background: var(--admin-color); color: white; }
 
-        input[type="text"] { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
+        /* Grid & Card */
+        .posts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; margin-bottom: 50px; }
+        .card { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.3s; display: flex; flex-direction: column; }
+        .card-content { padding: 20px; flex-grow: 1; cursor: pointer; }
+        .card-footer { padding: 15px 20px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
 
-        .posts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
-        .card { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.3s; cursor: pointer; }
-        .card:hover { transform: translateY(-5px); }
-        .card-content { padding: 20px; }
-        .card-footer { padding: 15px 20px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; }
+        /* Admin Controls in Card */
+        .admin-actions { display: flex; gap: 5px; }
+        .btn-approve { background: #10b981; color: white; font-size: 0.7rem; padding: 4px 8px; border-radius: 4px; }
+        .btn-delete { background: #ef4444; color: white; font-size: 0.7rem; padding: 4px 8px; border-radius: 4px; }
 
         .hidden { display: none !important; }
 
         /* Modal */
         #submit-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 500px; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
-        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; margin-top: 5px; }
     </style>
 </head>
 <body>
 
 <header>
     <nav class="container">
-        <div class="logo">⚙️ ME-Link</div>
+        <div class="logo" onclick="location.reload()">⚙️ ME-Link</div>
         <div id="auth-ui">
             <button id="login-btn" class="btn btn-login">Google 로그인</button>
             <div id="user-ui" class="hidden">
@@ -67,16 +68,6 @@
         </div>
     </nav>
 </header>
-
-<!-- 관리자 전용 영역 (평소엔 hidden) -->
-<div id="admin-panel" class="container hidden" style="margin-top: 20px;">
-    <div class="admin-section">
-        <h2 style="color: var(--admin); margin-top: 0;">🛠️ 관리자 승인 대기 목록</h2>
-        <div id="pending-container">
-            <p>대기 중인 자료가 없습니다.</p>
-        </div>
-    </div>
-</div>
 
 <section class="search-section">
     <div class="container">
@@ -88,12 +79,19 @@
             <button class="filter-btn" data-cat="수업TIP">수업TIP</button>
             <button class="filter-btn" data-cat="문제해결">문제해결</button>
             <button class="filter-btn" data-cat="행사자료">행사자료</button>
+            <!-- 관리자 전용 탭 (숨겨져 있음) -->
+            <button id="admin-tab" class="filter-btn admin-tab hidden" data-cat="pending">
+                승인 대기 <span id="pending-count" class="badge">0</span>
+            </button>
         </div>
     </div>
 </section>
 
 <main class="container">
-    <div id="posts-container" class="posts-grid"></div>
+    <h2 id="view-title">공개된 자료</h2>
+    <div id="posts-container" class="posts-grid">
+        <p>자료를 불러오는 중입니다...</p>
+    </div>
 </main>
 
 <!-- 등록 모달 -->
@@ -101,15 +99,13 @@
     <div class="modal-content">
         <h3>새 수업자료 등록 신청</h3>
         <form id="resource-form">
-            <div class="form-group"><label>제목</label><input type="text" id="form-title" required></div>
-            <div class="form-group">
-                <label>카테고리</label>
-                <select id="form-category">
-                    <option>수업자료</option><option>학급운영</option><option>수업TIP</option><option>문제해결</option><option>행사자료</option>
-                </select>
-            </div>
-            <div class="form-group"><label>링크 (URL)</label><input type="url" id="form-url" required></div>
-            <div class="form-group"><label>설명</label><textarea id="form-desc" rows="3"></textarea></div>
+            <label>제목</label><input type="text" id="form-title" required>
+            <label style="margin-top:10px; display:block;">카테고리</label>
+            <select id="form-category">
+                <option>수업자료</option><option>학급운영</option><option>수업TIP</option><option>문제해결</option><option>행사자료</option>
+            </select>
+            <label style="margin-top:10px; display:block;">링크 (URL)</label><input type="url" id="form-url" required>
+            <label style="margin-top:10px; display:block;">설명</label><textarea id="form-desc" rows="3"></textarea>
             <div style="display: flex; gap: 10px; margin-top: 20px;">
                 <button type="submit" class="btn btn-submit" style="flex: 2;">등록 신청</button>
                 <button type="button" id="close-modal" class="btn" style="flex: 1; background: #eee;">취소</button>
@@ -120,7 +116,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, query, where, getDocs, serverTimestamp, orderBy, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, query, where, getDocs, serverTimestamp, orderBy, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
     const firebaseConfig = {
@@ -140,97 +136,124 @@
     const provider = new GoogleAuthProvider();
     const ADMIN_EMAIL = 'kocvdv38@gmail.com';
 
-    let currentUser = null;
+    let currentCat = 'all';
+    let isAdminMode = false;
 
     // UI 요소
-    const adminPanel = document.getElementById('admin-panel');
-    const pendingContainer = document.getElementById('pending-container');
     const postsContainer = document.getElementById('posts-container');
+    const adminTab = document.getElementById('admin-tab');
+    const pendingCountBadge = document.getElementById('pending-count');
 
-    // [함수] 데이터 로드 (메인)
-    async function fetchPosts() {
-        const q = query(collection(db, "posts"), where("status", "==", "approved"), orderBy("created_at", "desc"));
-        const snapshot = await getDocs(q);
+    // [함수] 데이터 렌더링
+    function renderCards(snapshot) {
         postsContainer.innerHTML = '';
+        if (snapshot.empty) {
+            postsContainer.innerHTML = '<p>해당하는 자료가 없습니다.</p>';
+            return;
+        }
         snapshot.forEach(res => {
             const data = res.data();
             const card = document.createElement('div');
             card.className = 'card';
+            
+            // 관리자 모드일 때는 승인/거절 버튼 추가
+            const adminButtons = (isAdminMode && data.status === 'pending') ? `
+                <div class="admin-actions">
+                    <button class="btn btn-approve" onclick="updatePostStatus('${res.id}', 'approved')">승인</button>
+                    <button class="btn btn-delete" onclick="updatePostStatus('${res.id}', 'delete')">거절</button>
+                </div>
+            ` : `<button class="btn" style="font-size:0.7rem; background:#e2e8f0;" onclick="copyLink('${data.link_url}')">🔗 링크복사</button>`;
+
             card.innerHTML = `
                 <div class="card-content" onclick="window.open('${data.link_url}', '_blank')">
                     <span style="font-size:0.75rem; color:var(--accent);">#${data.category}</span>
                     <h3 style="margin:8px 0;">${data.title}</h3>
-                    <p style="font-size:0.9rem; color:#64748b;">${data.description}</p>
+                    <p style="font-size:0.9rem; color:#64748b; margin-bottom:0;">${data.description}</p>
                 </div>
                 <div class="card-footer">
                     <span style="font-size:0.8rem; color:#94a3b8;">by ${data.author.split('@')[0]}</span>
-                    <button class="btn" style="font-size:0.7rem; background:#e2e8f0;" onclick="event.stopPropagation(); copyLink('${data.link_url}')">🔗 링크복사</button>
+                    ${adminButtons}
                 </div>
             `;
             postsContainer.appendChild(card);
         });
     }
 
-    // [함수] 관리자용 대기 목록 로드
-    async function fetchPendingPosts() {
+    // [함수] 데이터 불러오기 (실시간 감시)
+    function loadData(category) {
+        let q;
+        isAdminMode = (category === 'pending');
+        document.getElementById('view-title').innerText = isAdminMode ? "검토 대기 중인 자료" : "공개된 자료";
+
+        if (isAdminMode) {
+            q = query(collection(db, "posts"), where("status", "==", "pending"), orderBy("created_at", "desc"));
+        } else if (category === 'all') {
+            q = query(collection(db, "posts"), where("status", "==", "approved"), orderBy("created_at", "desc"));
+        } else {
+            q = query(collection(db, "posts"), where("status", "==", "approved"), where("category", "==", category), orderBy("created_at", "desc"));
+        }
+
+        getDocs(q).then(renderCards);
+    }
+
+    // [관리자 전용] 대기 숫자 실시간 업데이트
+    function watchPendingCount() {
         const q = query(collection(db, "posts"), where("status", "==", "pending"));
-        const snapshot = await getDocs(q);
-        pendingContainer.innerHTML = snapshot.empty ? '<p>대기 중인 자료가 없습니다.</p>' : '';
-        snapshot.forEach(res => {
-            const data = res.data();
-            const div = document.createElement('div');
-            div.className = 'admin-card';
-            div.innerHTML = `
-                <div>
-                    <strong>${data.title}</strong> (${data.author})<br>
-                    <small><a href="${data.link_url}" target="_blank">링크 확인</a></small>
-                </div>
-                <div>
-                    <button class="btn" style="background:#10b981; color:white;" onclick="updateStatus('${res.id}', 'approved')">승인</button>
-                    <button class="btn" style="background:#ef4444; color:white;" onclick="updateStatus('${res.id}', 'rejected')">거절</button>
-                </div>
-            `;
-            pendingContainer.appendChild(div);
+        onSnapshot(q, (snapshot) => {
+            const count = snapshot.size;
+            pendingCountBadge.innerText = count;
+            if (count > 0) {
+                adminTab.classList.remove('hidden');
+            } else if (currentCat !== 'pending') {
+                // 대기가 0이고 현재 보고 있는 탭이 승인대기 탭이 아닐 때만 숨김
+                adminTab.classList.add('hidden');
+            }
         });
     }
 
-    // [전역 함수] 승인/거절 처리
-    window.updateStatus = async (id, status) => {
-        if (status === 'rejected') {
+    // [전역 함수] 승인/삭제 처리
+    window.updatePostStatus = async (id, action) => {
+        if (action === 'delete') {
             if (confirm('삭제하시겠습니까?')) await deleteDoc(doc(db, "posts", id));
         } else {
             await updateDoc(doc(db, "posts", id), { status: 'approved' });
             alert('승인되었습니다!');
         }
-        location.reload();
+        loadData('pending');
     };
+
+    // [이벤트] 카테고리 필터 클릭
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.onclick = (e) => {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentCat = btn.getAttribute('data-cat');
+            loadData(currentCat);
+        };
+    });
 
     // [이벤트] 로그인 상태 감시
     onAuthStateChanged(auth, (user) => {
-        currentUser = user;
         if (user) {
             document.getElementById('login-btn').classList.add('hidden');
             document.getElementById('user-ui').classList.remove('hidden');
-            // 관리자면 관리자 패널 보여주기
             if (user.email === ADMIN_EMAIL) {
-                adminPanel.classList.remove('hidden');
-                fetchPendingPosts();
+                watchPendingCount();
             }
         } else {
             document.getElementById('login-btn').classList.remove('hidden');
             document.getElementById('user-ui').classList.add('hidden');
-            adminPanel.classList.add('hidden');
+            adminTab.classList.add('hidden');
         }
-        fetchPosts();
+        loadData('all');
     });
 
-    // 기타 이벤트 (로그인, 로그아웃, 모달)
+    // 로그인/로그아웃/모달/등록 로직 (동일)
     document.getElementById('login-btn').onclick = () => signInWithPopup(auth, provider);
     document.getElementById('logout-btn').onclick = () => signOut(auth);
     document.getElementById('open-submit-btn').onclick = () => document.getElementById('submit-modal').classList.remove('hidden');
     document.getElementById('close-modal').onclick = () => document.getElementById('submit-modal').classList.add('hidden');
-
-    // [이벤트] 자료 제출
+    
     document.getElementById('resource-form').onsubmit = async (e) => {
         e.preventDefault();
         const newPost = {
@@ -238,12 +261,13 @@
             category: document.getElementById('form-category').value,
             link_url: document.getElementById('form-url').value,
             description: document.getElementById('form-desc').value,
-            author: currentUser.email,
+            author: auth.currentUser.email,
             status: "pending",
             created_at: serverTimestamp()
         };
         await addDoc(collection(db, "posts"), newPost);
-        alert('등록 신청 완료! 관리자 승인 후 게시됩니다.');
+        alert('신청 완료! 관리자 승인 후 게시됩니다.');
+        document.getElementById('submit-modal').classList.add('hidden');
         location.reload();
     };
 
