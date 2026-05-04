@@ -16,7 +16,20 @@
 
         header { background: var(--primary); color: white; padding: 0.8rem 0; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         nav { display: flex; justify-content: space-between; align-items: center; }
+        .nav-left { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
         .logo { font-size: 1.3rem; font-weight: bold; cursor: pointer; }
+        .nav-cafe-link {
+            color: rgba(255, 255, 255, 0.95);
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            white-space: nowrap;
+        }
+        .nav-cafe-link:hover { background: rgba(255, 255, 255, 0.12); }
+        .nav-cafe-link:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.8); outline-offset: 2px; }
 
         .btn { padding: 10px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 500; transition: 0.2s; font-size: 0.9rem; }
         .btn-login { background: white; color: var(--primary); }
@@ -171,7 +184,10 @@
 
 <header>
     <nav class="container">
-        <div class="logo" onclick="location.reload()">⚙️ ME-Link</div>
+        <div class="nav-left">
+            <div class="logo" onclick="location.reload()">⚙️ ME-Link</div>
+            <a href="https://cafe.naver.com/daveju" target="_blank" rel="noopener noreferrer" class="nav-cafe-link">Cafe</a>
+        </div>
         <div id="auth-ui">
             <button id="login-btn" class="btn btn-login">로그인</button>
             <div id="user-ui" class="hidden" style="display:flex; gap:8px; align-items:center;">
