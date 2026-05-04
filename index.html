@@ -98,8 +98,8 @@
             <button class="subject-tag active" data-sub="all">전체</button>
         </div>
         <div id="admin-subject-tools" class="hidden" style="margin-top:8px;">
-            <input type="text" id="new-subject-name" placeholder="새 과목 추가..." style="width:150px; padding:4px; font-size:12px;">
-            <button onclick="addSubject()" class="btn-mini" style="background:var(--primary); color:white;">추가</button>
+            <input type="text" id="new-subject-name" placeholder="새 과목 추가..." style="width:180px; padding:4px; font-size:12px;">
+            <button onclick="addCategoryOption()" class="btn-mini" style="background:var(--primary); color:white;">추가</button>
         </div>
         <p id="admin-instruction" class="hidden" style="font-size:0.75rem; color:var(--accent); margin-top:10px;">💡 관리자 모드: 카드를 다른 카드 위로 드래그하여 자료를 묶을 수 있습니다.</p>
     </div>
@@ -129,7 +129,7 @@
                     <option>기타</option>
                 </select>
             </div>
-            <label>과목 선택</label>
+            <label id="form-subject-label">과목 선택</label>
             <select id="form-subject"></select>
             <label>링크 (URL)</label><input type="url" id="form-url">
             <label>내용</label><textarea id="form-desc" rows="5"></textarea>
@@ -172,28 +172,72 @@
 
     let allPosts = [];
     let allSubjects = [];
+    let allClassGroups = [];
+    let allEventGroups = [];
     let currentCat = 'all';
     let currentSub = 'all';
+    let currentSearch = '';
     let draggedId = null;
 
     // --- 과목 관리 ---
-    window.addSubject = async () => {
+    window.addCategoryOption = async () => {
         const name = document.getElementById('new-subject-name').value.trim();
         if (!name) return;
-        await addDoc(collection(db, "subjects"), { name, created_at: serverTimestamp() });
+        const col =
+            currentCat === '학급운영' ? 'classGroups' :
+            currentCat === '행사자료' ? 'eventGroups' :
+            'subjects';
+        await addDoc(collection(db, col), { name, created_at: serverTimestamp() });
         document.getElementById('new-subject-name').value = "";
     };
+    function getFormOptionMode(category) {
+        const c = String(category || '').trim();
+        if (c === '학급운영') return 'class';
+        if (c === '행사자료') return 'event';
+        return 'subject';
+    }
+    function getFormOptionList(category) {
+        const mode = getFormOptionMode(category);
+        const src = mode === 'class' ? allClassGroups : (mode === 'event' ? allEventGroups : allSubjects);
+        return src.slice().sort(function (a, b) {
+            return String(a.name || '').localeCompare(String(b.name || ''), 'ko');
+        });
+    }
+    function renderFormSubjectOptions(selectedValue) {
+        const catEl = document.getElementById('form-category');
+        const labelEl = document.getElementById('form-subject-label');
+        const select = document.getElementById('form-subject');
+        if (!catEl || !labelEl || !select) return;
+        const cat = String(catEl.value || '').trim();
+        const mode = getFormOptionMode(cat);
+        labelEl.textContent = (mode === 'subject') ? '과목 선택' : '구분 선택';
+        const list = getFormOptionList(cat);
+        const keep = selectedValue != null ? String(selectedValue) : String(select.value || '');
+        select.innerHTML = `<option value="">미지정</option>`;
+        list.forEach(function (item) {
+            const opt = document.createElement('option');
+            opt.value = item.name;
+            opt.innerText = item.name;
+            select.appendChild(opt);
+        });
+        if (keep) select.value = keep;
+    }
+    function updateAdminListToolUi() {
+        const input = document.getElementById('new-subject-name');
+        if (!input) return;
+        if (currentCat === '학급운영') input.placeholder = '새 학급운영 구분 추가...';
+        else if (currentCat === '행사자료') input.placeholder = '새 행사자료 구분 추가...';
+        else input.placeholder = '새 과목 추가...';
+    }
 
     function isSubjectFilterEnabled() {
         return currentCat === '수업자료' || currentCat === '문제해결';
     }
     function renderSubjects() {
         const list = document.getElementById('subject-list');
-        const select = document.getElementById('form-subject');
         const enabled = isSubjectFilterEnabled();
         list.style.display = enabled ? 'flex' : 'none';
         list.innerHTML = `<span style="font-size:0.8rem; font-weight:bold; color:#64748b;">과목: </span><button class="subject-tag ${currentSub === 'all' ? 'active' : ''}" onclick="filterBySub('all')">전체</button>`;
-        select.innerHTML = `<option value="">미지정</option>`;
         const sortedSubjects = allSubjects.slice().sort(function (a, b) {
             return String(a.name || '').localeCompare(String(b.name || ''), 'ko');
         });
@@ -203,10 +247,8 @@
             btn.innerText = sub.name;
             btn.onclick = () => filterBySub(sub.name);
             list.appendChild(btn);
-            const opt = document.createElement('option');
-            opt.value = sub.name; opt.innerText = sub.name;
-            select.appendChild(opt);
         });
+        renderFormSubjectOptions();
     }
     window.filterBySub = (name) => { currentSub = name; renderSubjects(); render(); };
     window.toggleMaterialTypeField = () => {
@@ -215,6 +257,7 @@
         if (!catEl || !wrap) return;
         const on = String(catEl.value || '') === '수업자료';
         wrap.style.display = on ? 'block' : 'none';
+        renderFormSubjectOptions();
     };
 
     // --- 메인 드래그 앤 드롭 (그룹화 기능) ---
@@ -260,8 +303,16 @@
             if (currentCat === 'pending') return p.status === 'pending';
             const matchCat = currentCat === 'all' || p.category === currentCat;
             const matchSub = !isSubjectFilterEnabled() || currentSub === 'all' || p.subject === currentSub;
+            const q = String(currentSearch || '').trim().toLowerCase();
+            const haystack = [
+                String(p.subject || ''),         // 과목/구분
+                String(p.material_type || ''),   // 수업자료 구분(PPT/학습자료/평가/기타)
+                String(p.title || ''),           // 제목
+                String(p.description || '')      // 내용
+            ].join(' ').toLowerCase();
+            const matchSearch = !q || haystack.indexOf(q) >= 0;
             // parentId가 없는(최상위) 자료만 메인에 표시
-            return matchCat && matchSub && p.status === 'approved' && !p.parentId;
+            return matchCat && matchSub && matchSearch && p.status === 'approved' && !p.parentId;
         });
 
         filtered.forEach(post => {
@@ -415,6 +466,14 @@ window.showTextDetail = (id) => {
         allSubjects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         renderSubjects();
     });
+    onSnapshot(collection(db, "classGroups"), (snap) => {
+        allClassGroups = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderFormSubjectOptions();
+    });
+    onSnapshot(collection(db, "eventGroups"), (snap) => {
+        allEventGroups = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderFormSubjectOptions();
+    });
 
     onAuthStateChanged(auth, (user) => {
         const isAdmin = user?.email === ADMIN_EMAIL;
@@ -423,6 +482,7 @@ window.showTextDetail = (id) => {
         document.getElementById('admin-instruction').classList.toggle('hidden', !isAdmin);
         document.getElementById('user-ui').classList.toggle('hidden', !user);
         document.getElementById('login-btn').classList.toggle('hidden', !!user);
+        updateAdminListToolUi();
         render();
     });
 
@@ -444,7 +504,7 @@ window.openEditModal = (id) => {
     document.getElementById('form-category').value = post.category;
     document.getElementById('form-material-type').value = (post.material_type || '기타');
     if (typeof toggleMaterialTypeField === 'function') toggleMaterialTypeField();
-    document.getElementById('form-subject').value = post.subject || "";
+    renderFormSubjectOptions(post.subject || "");
     document.getElementById('form-url').value = post.link_url || "";
     document.getElementById('form-desc').value = post.description || "";
     
@@ -464,8 +524,13 @@ window.openEditModal = (id) => {
             btn.classList.add('active');
             currentCat = btn.getAttribute('data-cat');
             renderSubjects();
+            updateAdminListToolUi();
             render();
         };
+    });
+    document.getElementById('search-input').addEventListener('input', function () {
+        currentSearch = String(this.value || '');
+        render();
     });
 
     window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
@@ -476,6 +541,7 @@ window.openEditModal = (id) => {
         document.getElementById('resource-form').reset(); 
         const mt = document.getElementById('form-material-type');
         if (mt) mt.value = 'PPT';
+        renderFormSubjectOptions("");
         if (typeof toggleMaterialTypeField === 'function') toggleMaterialTypeField();
         document.getElementById('form-modal').classList.remove('hidden'); 
     };
