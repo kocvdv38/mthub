@@ -13,44 +13,46 @@
         body { font-family: 'Pretendard', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; line-height: 1.6; }
         .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
 
-        /* Header */
         header { background: var(--primary); color: white; padding: 1rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         nav { display: flex; justify-content: space-between; align-items: center; }
         .logo { font-size: 1.5rem; font-weight: bold; cursor: pointer; }
 
-        /* Buttons */
         .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-weight: 500; transition: 0.2s; }
         .btn-login { background: white; color: var(--primary); }
         .btn-submit { background: var(--accent); color: white; }
         .btn-logout { background: transparent; color: white; border: 1px solid white; font-size: 0.8rem; }
         
-        /* Tab System */
         .search-section { background: white; padding: 2rem 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 2rem; }
         .filter-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 1rem; align-items: center; }
         .filter-btn { padding: 8px 16px; border-radius: 20px; border: 1px solid #cbd5e1; background: white; cursor: pointer; position: relative; display: flex; align-items: center; gap: 5px; }
         .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
         
-        /* Admin Badge */
         .badge { background: var(--admin-color); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; font-weight: bold; min-width: 12px; text-align: center; }
         .admin-tab { border: 2px solid var(--admin-color); color: var(--admin-color); font-weight: bold; }
         .admin-tab.active { background: var(--admin-color); color: white; }
 
-        /* Grid & Card */
         .posts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; margin-bottom: 50px; }
-        .card { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.3s; display: flex; flex-direction: column; }
+        
+        /* Card Styles */
+        .card { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.3s; display: flex; flex-direction: column; position: relative; }
+        .card.dragging { opacity: 0.5; border: 2px dashed var(--accent); }
+        .card.drag-over { transform: scale(1.05); border: 2px solid var(--accent); background: #eef2ff; }
+        
+        /* Grouped Card Visual Effect */
+        .card.is-group::before { content: ""; position: absolute; top: -5px; left: 5px; right: 5px; height: 10px; background: #cbd5e1; border-radius: 12px 12px 0 0; z-index: -1; }
+        
         .card-content { padding: 20px; flex-grow: 1; cursor: pointer; }
         .card-footer { padding: 15px 20px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
 
-        .admin-actions { display: flex; gap: 5px; }
-        .btn-approve { background: #10b981; color: white; font-size: 0.7rem; padding: 4px 8px; border-radius: 4px; }
-        .btn-delete { background: #ef4444; color: white; font-size: 0.7rem; padding: 4px 8px; border-radius: 4px; }
-
         .hidden { display: none !important; }
 
-        /* Modal */
-        #submit-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 500px; }
-        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; margin-top: 5px; }
+        /* Modals */
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
+        
+        /* Sub-item List */
+        .sub-item { padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .sub-item:last-child { border-bottom: none; }
     </style>
 </head>
 <body>
@@ -78,7 +80,6 @@
             <button class="filter-btn" data-cat="수업TIP">수업TIP</button>
             <button class="filter-btn" data-cat="문제해결">문제해결</button>
             <button class="filter-btn" data-cat="행사자료">행사자료</button>
-            <!-- 관리자용 탭 -->
             <button id="admin-tab" class="filter-btn admin-tab hidden" data-cat="pending">
                 승인 대기 <span id="pending-count" class="badge">0</span>
             </button>
@@ -88,27 +89,34 @@
 
 <main class="container">
     <h2 id="view-title">공개된 자료</h2>
-    <div id="posts-container" class="posts-grid">
-        <p>자료를 불러오는 중입니다...</p>
-    </div>
+    <div id="posts-container" class="posts-grid"></div>
 </main>
 
-<div id="submit-modal" class="hidden">
+<!-- 등록 모달 -->
+<div id="submit-modal" class="modal hidden">
     <div class="modal-content">
         <h3>새 수업자료 등록 신청</h3>
         <form id="resource-form">
-            <label>제목</label><input type="text" id="form-title" required>
-            <label style="margin-top:10px; display:block;">카테고리</label>
-            <select id="form-category">
+            <input type="text" id="form-title" placeholder="제목" required>
+            <select id="form-category" style="margin-top:10px;">
                 <option>수업자료</option><option>학급운영</option><option>수업TIP</option><option>문제해결</option><option>행사자료</option>
             </select>
-            <label style="margin-top:10px; display:block;">링크 (URL)</label><input type="url" id="form-url" required>
-            <label style="margin-top:10px; display:block;">설명</label><textarea id="form-desc" rows="3"></textarea>
+            <input type="url" id="form-url" placeholder="링크(URL)" required style="margin-top:10px;">
+            <textarea id="form-desc" rows="3" placeholder="간략 설명" style="margin-top:10px; width:100%;"></textarea>
             <div style="display: flex; gap: 10px; margin-top: 20px;">
                 <button type="submit" class="btn btn-submit" style="flex: 2;">등록 신청</button>
-                <button type="button" id="close-modal" class="btn" style="flex: 1; background: #eee;">취소</button>
+                <button type="button" onclick="closeModal('submit-modal')" class="btn" style="flex: 1; background: #eee;">취소</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- 그룹 상세 모달 -->
+<div id="group-modal" class="modal hidden">
+    <div class="modal-content">
+        <h3 id="group-modal-title">자료 묶음</h3>
+        <div id="group-items-list"></div>
+        <button onclick="closeModal('group-modal')" class="btn" style="width:100%; margin-top:20px; background:#eee;">닫기</button>
     </div>
 </div>
 
@@ -134,127 +142,141 @@
     const provider = new GoogleAuthProvider();
     const ADMIN_EMAIL = 'kocvdv38@gmail.com';
 
+    let allPosts = [];
     let currentCat = 'all';
 
+    // UI 요소
     const postsContainer = document.getElementById('posts-container');
     const adminTab = document.getElementById('admin-tab');
-    const pendingCountBadge = document.getElementById('pending-count');
 
-    // [함수] 카드 렌더링
-    function renderCards(snapshot) {
+    // [함수] 데이터 렌더링
+    function render() {
         postsContainer.innerHTML = '';
-        if (snapshot.empty) {
-            postsContainer.innerHTML = '<p>아직 등록된 자료가 없습니다.</p>';
-            return;
+        
+        // 1. 최상위 자료만 필터링 (부모가 없는 자료들)
+        let displayPosts = allPosts.filter(p => !p.parentId);
+
+        // 2. 카테고리 필터
+        if (currentCat !== 'all') {
+            displayPosts = displayPosts.filter(p => p.category === currentCat || p.status === currentCat);
+        } else {
+            displayPosts = displayPosts.filter(p => p.status === 'approved');
         }
-        snapshot.forEach(res => {
-            const data = res.data();
+
+        displayPosts.forEach(post => {
+            const childCount = allPosts.filter(p => p.parentId === post.id).length;
             const card = document.createElement('div');
-            card.className = 'card';
+            card.className = `card ${childCount > 0 ? 'is-group' : ''}`;
+            card.id = `card-${post.id}`;
             
-            const isPending = data.status === 'pending';
-            const footerContent = (isPending && auth.currentUser?.email === ADMIN_EMAIL) ? `
-                <div class="admin-actions">
-                    <button class="btn btn-approve" onclick="updatePostStatus('${res.id}', 'approved')">승인</button>
-                    <button class="btn btn-delete" onclick="updatePostStatus('${res.id}', 'delete')">거절</button>
-                </div>
-            ` : `<button class="btn" style="font-size:0.7rem; background:#e2e8f0;" onclick="copyLink('${data.link_url}')">🔗 링크복사</button>`;
+            // 관리자면 드래그 활성화
+            if (auth.currentUser?.email === ADMIN_EMAIL) {
+                card.draggable = true;
+                card.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', post.id));
+                card.addEventListener('dragover', (e) => { e.preventDefault(); card.classList.add('drag-over'); });
+                card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+                card.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    card.classList.remove('drag-over');
+                    const draggedId = e.dataTransfer.getData('text/plain');
+                    if (draggedId !== post.id) handleMerge(draggedId, post.id);
+                });
+            }
 
             card.innerHTML = `
-                <div class="card-content" onclick="window.open('${data.link_url}', '_blank')">
-                    <span style="font-size:0.75rem; color:var(--accent);">#${data.category}</span>
-                    <h3 style="margin:8px 0;">${data.title}</h3>
-                    <p style="font-size:0.9rem; color:#64748b; margin-bottom:0;">${data.description}</p>
+                <div class="card-content" onclick="handleCardClick('${post.id}')">
+                    <span style="font-size:0.75rem; color:var(--accent);">#${post.category} ${childCount > 0 ? `(+${childCount})` : ''}</span>
+                    <h3 style="margin:8px 0;">${post.title}</h3>
+                    <p style="font-size:0.9rem; color:#64748b; margin-bottom:0;">${post.description}</p>
                 </div>
                 <div class="card-footer">
-                    <span style="font-size:0.8rem; color:#94a3b8;">by ${data.author.split('@')[0]}</span>
-                    ${footerContent}
+                    <span style="font-size:0.8rem; color:#94a3b8;">by ${post.author.split('@')[0]}</span>
+                    ${post.status === 'pending' ? `
+                        <button class="btn" style="background:#10b981; color:white; font-size:0.7rem;" onclick="updatePostStatus('${post.id}', 'approved')">승인</button>
+                    ` : `<button class="btn" style="font-size:0.7rem; background:#e2e8f0;" onclick="copyLink('${post.link_url}')">🔗 링크복사</button>`}
                 </div>
             `;
             postsContainer.appendChild(card);
         });
     }
 
-    // [함수] 데이터 로드 (정렬 제거로 로딩 이슈 해결)
-    async function loadData(category) {
-        postsContainer.innerHTML = '<p>자료를 불러오는 중입니다...</p>';
-        let q;
-        document.getElementById('view-title').innerText = category === 'pending' ? "검토 대기 중인 자료" : "공개된 자료";
+    // [함수] 카드 클릭 처리 (그룹이면 리스트 노출, 아니면 링크 이동)
+    window.handleCardClick = (id) => {
+        const post = allPosts.find(p => p.id === id);
+        const children = allPosts.filter(p => p.parentId === id);
 
-        if (category === 'pending') {
-            q = query(collection(db, "posts"), where("status", "==", "pending"));
-        } else if (category === 'all') {
-            q = query(collection(db, "posts"), where("status", "==", "approved"));
+        if (children.length > 0) {
+            const listContainer = document.getElementById('group-items-list');
+            listContainer.innerHTML = '';
+            
+            // 본인 포함 모든 목록화 (제목은 숨김 처리 가능하지만 링크 구분을 위해 표시)
+            [post, ...children].forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'sub-item';
+                div.innerHTML = `
+                    <span>📄 ${item.title}</span>
+                    <button class="btn" style="font-size:0.7rem; background:var(--accent); color:white;" onclick="window.open('${item.link_url}')">열기</button>
+                `;
+                listContainer.appendChild(div);
+            });
+            document.getElementById('group-modal').classList.remove('hidden');
         } else {
-            q = query(collection(db, "posts"), where("status", "==", "approved"), where("category", "==", category));
-        }
-
-        try {
-            const snapshot = await getDocs(q);
-            renderCards(snapshot);
-        } catch (err) {
-            console.error(err);
-            postsContainer.innerHTML = '<p style="color:red;">오류 발생: ' + err.message + '</p>';
-        }
-    }
-
-    // [함수] 대기 숫자 실시간 감시 (관리자 전용)
-    function watchPendingCount() {
-        const q = query(collection(db, "posts"), where("status", "==", "pending"));
-        onSnapshot(q, (snapshot) => {
-            pendingCountBadge.innerText = snapshot.size;
-        });
-    }
-
-    // [전역 함수] 승인/삭제
-    window.updatePostStatus = async (id, action) => {
-        try {
-            if (action === 'delete') {
-                if (confirm('정말 삭제하시겠습니까?')) await deleteDoc(doc(db, "posts", id));
-            } else {
-                await updateDoc(doc(db, "posts", id), { status: 'approved' });
-                alert('승인되었습니다!');
-            }
-            loadData(currentCat);
-        } catch (err) {
-            alert("처리 중 오류가 발생했습니다: " + err.message);
+            window.open(post.link_url, '_blank');
         }
     };
 
-    // 필터 이벤트
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.onclick = () => {
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentCat = btn.getAttribute('data-cat');
-            loadData(currentCat);
-        };
+    // [함수] 자료 병합 (드래그 앤 드롭)
+    async function handleMerge(draggedId, targetId) {
+        if (!confirm('이 자료를 그룹에 추가하시겠습니까?')) return;
+        await updateDoc(doc(db, "posts", draggedId), { parentId: targetId });
+        // 실시간 리스너가 있어서 자동 갱신됨
+    }
+
+    // [실시간 리스너]
+    onSnapshot(collection(db, "posts"), (snapshot) => {
+        allPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const pendingCount = allPosts.filter(p => p.status === 'pending').length;
+        document.getElementById('pending-count').innerText = pendingCount;
+        render();
     });
 
+    // 기타 기능들
+    window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
+    window.updatePostStatus = async (id, status) => {
+        await updateDoc(doc(db, "posts", id), { status });
+        alert('승인되었습니다.');
+    };
+    window.copyLink = (url) => { navigator.clipboard.writeText(url); alert('링크가 복사되었습니다.'); };
+
+    // 로그인/로그아웃/필터
     onAuthStateChanged(auth, (user) => {
         if (user) {
             document.getElementById('login-btn').classList.add('hidden');
             document.getElementById('user-ui').classList.remove('hidden');
-            if (user.email === ADMIN_EMAIL) {
-                adminTab.classList.remove('hidden'); // 관리자면 항상 보이게
-                watchPendingCount();
-            }
+            if (user.email === ADMIN_EMAIL) adminTab.classList.remove('hidden');
         } else {
             document.getElementById('login-btn').classList.remove('hidden');
             document.getElementById('user-ui').classList.add('hidden');
             adminTab.classList.add('hidden');
         }
-        loadData('all');
     });
 
     document.getElementById('login-btn').onclick = () => signInWithPopup(auth, provider);
     document.getElementById('logout-btn').onclick = () => signOut(auth);
     document.getElementById('open-submit-btn').onclick = () => document.getElementById('submit-modal').classList.remove('hidden');
-    document.getElementById('close-modal').onclick = () => document.getElementById('submit-modal').classList.add('hidden');
     
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentCat = btn.getAttribute('data-cat');
+            render();
+        };
+    });
+
     document.getElementById('resource-form').onsubmit = async (e) => {
         e.preventDefault();
-        const newPost = {
+        await addDoc(collection(db, "posts"), {
             title: document.getElementById('form-title').value,
             category: document.getElementById('form-category').value,
             link_url: document.getElementById('form-url').value,
@@ -262,14 +284,10 @@
             author: auth.currentUser.email,
             status: "pending",
             created_at: serverTimestamp()
-        };
-        await addDoc(collection(db, "posts"), newPost);
-        alert('신청 완료! 관리자 승인 후 게시됩니다.');
-        document.getElementById('submit-modal').classList.add('hidden');
-        loadData('all');
+        });
+        alert('등록 신청 완료!');
+        closeModal('submit-modal');
     };
-
-    window.copyLink = (url) => { navigator.clipboard.writeText(url); alert('복사되었습니다!'); };
 </script>
 </body>
 </html>
