@@ -184,12 +184,20 @@
         document.getElementById('new-subject-name').value = "";
     };
 
+    function isSubjectFilterEnabled() {
+        return currentCat === '수업자료' || currentCat === '문제해결';
+    }
     function renderSubjects() {
         const list = document.getElementById('subject-list');
         const select = document.getElementById('form-subject');
+        const enabled = isSubjectFilterEnabled();
+        list.style.display = enabled ? 'flex' : 'none';
         list.innerHTML = `<span style="font-size:0.8rem; font-weight:bold; color:#64748b;">과목: </span><button class="subject-tag ${currentSub === 'all' ? 'active' : ''}" onclick="filterBySub('all')">전체</button>`;
         select.innerHTML = `<option value="">미지정</option>`;
-        allSubjects.forEach(sub => {
+        const sortedSubjects = allSubjects.slice().sort(function (a, b) {
+            return String(a.name || '').localeCompare(String(b.name || ''), 'ko');
+        });
+        sortedSubjects.forEach(sub => {
             const btn = document.createElement('button');
             btn.className = `subject-tag ${currentSub === sub.name ? 'active' : ''}`;
             btn.innerText = sub.name;
@@ -251,7 +259,7 @@
         let filtered = allPosts.filter(p => {
             if (currentCat === 'pending') return p.status === 'pending';
             const matchCat = currentCat === 'all' || p.category === currentCat;
-            const matchSub = currentSub === 'all' || p.subject === currentSub;
+            const matchSub = !isSubjectFilterEnabled() || currentSub === 'all' || p.subject === currentSub;
             // parentId가 없는(최상위) 자료만 메인에 표시
             return matchCat && matchSub && p.status === 'approved' && !p.parentId;
         });
@@ -358,12 +366,14 @@ window.handleCardClick = (id) => {
 window.showTextDetail = (id) => {
     const post = allPosts.find(p => p.id === id);
     const list = document.getElementById('group-items-list');
+    const rawDesc = String((post && post.description) || "");
+    const normalizedDesc = rawDesc.replace(/^\s+/, '');
     
     list.innerHTML = `
         <div style="padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
             <h4 style="margin-top:0; color:var(--primary);">${post.title}</h4>
             <div style="white-space: pre-wrap; line-height: 1.6; font-size: 0.95rem; color: #334155;">
-                ${post.description || "등록된 상세 내용이 없습니다."}
+                ${normalizedDesc || "등록된 상세 내용이 없습니다."}
             </div>
         </div>
     `;
@@ -457,6 +467,7 @@ window.openEditModal = (id) => {
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             currentCat = btn.getAttribute('data-cat');
+            renderSubjects();
             render();
         };
     });
