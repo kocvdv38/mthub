@@ -50,7 +50,7 @@
             align-items: stretch;
             gap: 0;
             max-height: 200px;
-            overflow-x: hidden;
+            overflow-x: auto;
             overflow-y: auto;
             border: 1px solid #dee2e6;
             border-radius: 8px;
@@ -92,16 +92,18 @@
         }
         #resource-form #form-subject-wrap label.form-subject-cb-text {
             flex: 1 1 auto;
-            min-width: 0;
+            min-width: min-content;
             margin: 0;
             padding: 0;
             font-size: 0.95rem;
             font-weight: 400;
             line-height: 1.45;
-            color: var(--text);
+            color: #334155 !important;
             cursor: pointer;
             word-break: keep-all;
-            overflow-wrap: anywhere;
+            overflow-wrap: break-word;
+            overflow: visible;
+            white-space: normal;
         }
         #resource-form #form-subject-wrap .form-subject-empty {
             margin: 0;
@@ -281,8 +283,10 @@
             (currentCat === '안내사항' || currentCat === '행사자료') ? 'eventGroups' :
             'subjects';
         try {
-            const qy = query(collection(db, col), where('name', '==', targetName));
-            const snap = await getDocs(qy);
+            var snap = await getDocs(query(collection(db, col), where('name', '==', targetName)));
+            if (snap.empty) {
+                snap = await getDocs(query(collection(db, col), where('label', '==', targetName)));
+            }
             if (snap.empty) {
                 alert('이미 삭제되었거나 찾을 수 없습니다.');
                 return false;
@@ -290,9 +294,9 @@
             const jobs = [];
             snap.forEach(function (d) { jobs.push(deleteDoc(doc(db, col, d.id))); });
             await Promise.all(jobs);
-            if (col === 'classGroups') allClassGroups = allClassGroups.filter(x => String(x.name || '') !== targetName);
-            if (col === 'eventGroups') allEventGroups = allEventGroups.filter(x => String(x.name || '') !== targetName);
-            if (col === 'subjects') allSubjects = allSubjects.filter(x => String(x.name || '') !== targetName);
+            if (col === 'classGroups') allClassGroups = allClassGroups.filter(x => formOptionDisplayName(x) !== targetName);
+            if (col === 'eventGroups') allEventGroups = allEventGroups.filter(x => formOptionDisplayName(x) !== targetName);
+            if (col === 'subjects') allSubjects = allSubjects.filter(x => formOptionDisplayName(x) !== targetName);
             if (currentSub === targetName) currentSub = 'all';
             renderSubjects();
             render();
@@ -308,11 +312,19 @@
         if (c === '안내사항' || c === '행사자료') return 'event';
         return 'subject';
     }
+    /** 과목/구분 문서: name 우선, 없으면 label·title (Firestore 필드 편차 대응) */
+    function formOptionDisplayName(item) {
+        if (!item) return '';
+        if (item.name != null && String(item.name).trim() !== '') return String(item.name).trim();
+        if (item.label != null && String(item.label).trim() !== '') return String(item.label).trim();
+        if (item.title != null && String(item.title).trim() !== '') return String(item.title).trim();
+        return '';
+    }
     function getFormOptionList(category) {
         const mode = getFormOptionMode(category);
         const src = mode === 'class' ? allClassGroups : (mode === 'event' ? allEventGroups : allSubjects);
         return src.slice().sort(function (a, b) {
-            return String(a.name || '').localeCompare(String(b.name || ''), 'ko');
+            return formOptionDisplayName(a).localeCompare(formOptionDisplayName(b), 'ko');
         });
     }
     function getPostSubjectsList(post) {
@@ -361,25 +373,34 @@
             return;
         }
         const frag = document.createDocumentFragment();
-        list.forEach(function (item, idx) {
+        var rowIdx = 0;
+        list.forEach(function (item) {
+            const disp = formOptionDisplayName(item);
+            if (!disp) return;
             const row = document.createElement('div');
             row.className = 'form-subject-row';
             const cb = document.createElement('input');
-            const cid = 'form-subject-cb-' + String(idx);
+            const cid = 'form-subject-cb-' + String(rowIdx++);
             cb.id = cid;
             cb.type = 'checkbox';
             cb.name = 'form-subject-cb';
-            cb.value = item.name;
-            if (selectedSet[item.name]) cb.checked = true;
+            cb.value = disp;
+            if (selectedSet[disp]) cb.checked = true;
             const lbl = document.createElement('label');
             lbl.className = 'form-subject-cb-text';
             lbl.htmlFor = cid;
-            lbl.textContent = String(item.name || '');
+            lbl.textContent = disp;
             row.appendChild(cb);
             row.appendChild(lbl);
             frag.appendChild(row);
         });
         wrap.appendChild(frag);
+        if (!wrap.firstChild) {
+            const empty = document.createElement('p');
+            empty.className = 'form-subject-empty';
+            empty.textContent = '표시할 이름(name·label·title)이 있는 항목이 없습니다. Firestore 문서 필드를 확인해 주세요.';
+            wrap.appendChild(empty);
+        }
     }
     function updateAdminListToolUi() {
         const input = document.getElementById('new-subject-name');
@@ -407,14 +428,16 @@
         list.style.display = enabled ? 'flex' : 'none';
         list.innerHTML = `<span style="font-size:0.8rem; font-weight:bold; color:#64748b;">${getTopOptionLabel()}: </span><button class="subject-tag ${currentSub === 'all' ? 'active' : ''}" onclick="filterBySub('all')">전체</button>`;
         const sortedSubjects = getTopOptionList().sort(function (a, b) {
-            return String(a.name || '').localeCompare(String(b.name || ''), 'ko');
+            return formOptionDisplayName(a).localeCompare(formOptionDisplayName(b), 'ko');
         });
         const validNames = {};
         sortedSubjects.forEach(sub => {
-            validNames[String(sub.name)] = true;
+            const dn = formOptionDisplayName(sub);
+            if (!dn) return;
+            validNames[String(dn)] = true;
             const btn = document.createElement('button');
-            btn.className = `subject-tag ${currentSub === sub.name ? 'active' : ''}`;
-            btn.innerText = sub.name;
+            btn.className = `subject-tag ${currentSub === dn ? 'active' : ''}`;
+            btn.innerText = dn || '(이름 없음)';
             let pressTimer = null;
             let consumedByLongPress = false;
             function clearPressTimer() {
@@ -429,8 +452,8 @@
                     pressTimer = setTimeout(async function () {
                         pressTimer = null;
                         consumedByLongPress = true;
-                        if (confirm('"' + sub.name + '" 항목을 삭제하시겠습니까?')) {
-                            await deleteCategoryOptionByName(sub.name);
+                        if (confirm('"' + formOptionDisplayName(sub) + '" 항목을 삭제하시겠습니까?')) {
+                            await deleteCategoryOptionByName(formOptionDisplayName(sub));
                         }
                     }, 500);
                 });
@@ -449,7 +472,7 @@
                     e.stopPropagation();
                     return;
                 }
-                filterBySub(sub.name);
+                filterBySub(formOptionDisplayName(sub));
             });
             list.appendChild(btn);
         });
