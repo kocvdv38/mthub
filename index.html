@@ -100,10 +100,6 @@
         <div id="admin-subject-tools" class="hidden" style="margin-top:8px;">
             <input type="text" id="new-subject-name" placeholder="새 과목 추가..." style="width:180px; padding:4px; font-size:12px;">
             <button onclick="addCategoryOption()" class="btn-mini" style="background:var(--primary); color:white;">추가</button>
-            <select id="delete-subject-name" style="width:180px; padding:4px; font-size:12px; margin-left:6px;">
-                <option value="">삭제할 항목 선택</option>
-            </select>
-            <button onclick="deleteCategoryOption()" class="btn-mini" style="background:#dc3545; color:white;">삭제</button>
         </div>
         <p id="admin-instruction" class="hidden" style="font-size:0.75rem; color:var(--accent); margin-top:10px;">💡 관리자 모드: 카드를 다른 카드 위로 드래그하여 자료를 묶을 수 있습니다.</p>
     </div>
@@ -199,32 +195,35 @@
         renderSubjects();
         render();
     };
-    window.deleteCategoryOption = async () => {
-        const sel = document.getElementById('delete-subject-name');
-        const name = sel ? String(sel.value || '').trim() : '';
-        if (!name) return alert('삭제할 항목을 선택해 주세요.');
+    async function deleteCategoryOptionByName(name) {
+        const targetName = String(name || '').trim();
+        if (!targetName) return false;
         const col =
             currentCat === '학급운영' ? 'classGroups' :
             (currentCat === '안내사항' || currentCat === '행사자료') ? 'eventGroups' :
             'subjects';
-        if (!confirm('"' + name + '" 항목을 삭제할까요?')) return;
         try {
-            const qy = query(collection(db, col), where('name', '==', name));
+            const qy = query(collection(db, col), where('name', '==', targetName));
             const snap = await getDocs(qy);
-            if (snap.empty) return alert('이미 삭제되었거나 찾을 수 없습니다.');
+            if (snap.empty) {
+                alert('이미 삭제되었거나 찾을 수 없습니다.');
+                return false;
+            }
             const jobs = [];
             snap.forEach(function (d) { jobs.push(deleteDoc(doc(db, col, d.id))); });
             await Promise.all(jobs);
-            if (col === 'classGroups') allClassGroups = allClassGroups.filter(x => String(x.name || '') !== name);
-            if (col === 'eventGroups') allEventGroups = allEventGroups.filter(x => String(x.name || '') !== name);
-            if (col === 'subjects') allSubjects = allSubjects.filter(x => String(x.name || '') !== name);
-            if (currentSub === name) currentSub = 'all';
+            if (col === 'classGroups') allClassGroups = allClassGroups.filter(x => String(x.name || '') !== targetName);
+            if (col === 'eventGroups') allEventGroups = allEventGroups.filter(x => String(x.name || '') !== targetName);
+            if (col === 'subjects') allSubjects = allSubjects.filter(x => String(x.name || '') !== targetName);
+            if (currentSub === targetName) currentSub = 'all';
             renderSubjects();
             render();
+            return true;
         } catch (e) {
             alert('삭제 중 오류가 발생했습니다.');
+            return false;
         }
-    };
+    }
     function getFormOptionMode(category) {
         const c = String(category || '').trim();
         if (c === '학급운영') return 'class';
@@ -259,24 +258,10 @@
     }
     function updateAdminListToolUi() {
         const input = document.getElementById('new-subject-name');
-        const delSel = document.getElementById('delete-subject-name');
-        if (!input || !delSel) return;
+        if (!input) return;
         if (currentCat === '학급운영') input.placeholder = '새 학급운영 구분 추가...';
         else if (currentCat === '안내사항' || currentCat === '행사자료') input.placeholder = '새 안내사항 구분 추가...';
         else input.placeholder = '새 과목 추가...';
-        const label = (currentCat === '학급운영' || currentCat === '안내사항' || currentCat === '행사자료') ? '삭제할 구분 선택' : '삭제할 과목 선택';
-        const prev = String(delSel.value || '');
-        const list = getTopOptionList().sort(function (a, b) {
-            return String(a.name || '').localeCompare(String(b.name || ''), 'ko');
-        });
-        delSel.innerHTML = `<option value="">${label}</option>`;
-        list.forEach(function (item) {
-            const opt = document.createElement('option');
-            opt.value = item.name;
-            opt.textContent = item.name;
-            delSel.appendChild(opt);
-        });
-        if (prev) delSel.value = prev;
     }
 
     function isTopOptionFilterEnabled() {
@@ -292,6 +277,7 @@
     }
     function renderSubjects() {
         const list = document.getElementById('subject-list');
+        const isAdmin = auth.currentUser?.email === ADMIN_EMAIL;
         const enabled = isTopOptionFilterEnabled();
         list.style.display = enabled ? 'flex' : 'none';
         list.innerHTML = `<span style="font-size:0.8rem; font-weight:bold; color:#64748b;">${getTopOptionLabel()}: </span><button class="subject-tag ${currentSub === 'all' ? 'active' : ''}" onclick="filterBySub('all')">전체</button>`;
@@ -304,7 +290,42 @@
             const btn = document.createElement('button');
             btn.className = `subject-tag ${currentSub === sub.name ? 'active' : ''}`;
             btn.innerText = sub.name;
-            btn.onclick = () => filterBySub(sub.name);
+            let pressTimer = null;
+            let consumedByLongPress = false;
+            function clearPressTimer() {
+                if (!pressTimer) return;
+                clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+            if (isAdmin) {
+                btn.addEventListener('pointerdown', function () {
+                    consumedByLongPress = false;
+                    clearPressTimer();
+                    pressTimer = setTimeout(async function () {
+                        pressTimer = null;
+                        consumedByLongPress = true;
+                        if (confirm('"' + sub.name + '" 항목을 삭제하시겠습니까?')) {
+                            await deleteCategoryOptionByName(sub.name);
+                        }
+                    }, 500);
+                });
+                btn.addEventListener('pointerup', clearPressTimer);
+                btn.addEventListener('pointerleave', clearPressTimer);
+                btn.addEventListener('pointercancel', clearPressTimer);
+                btn.addEventListener('contextmenu', function (e) {
+                    e.preventDefault();
+                    clearPressTimer();
+                });
+            }
+            btn.addEventListener('click', function (e) {
+                if (consumedByLongPress) {
+                    consumedByLongPress = false;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                filterBySub(sub.name);
+            });
             list.appendChild(btn);
         });
         if (currentSub !== 'all' && !validNames[currentSub]) currentSub = 'all';
