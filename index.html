@@ -155,6 +155,65 @@
         .card-content { padding: 18px; flex-grow: 1; }
         .card-footer { padding: 10px 18px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
 
+        /* 문제해결 FAQ(아코디언) */
+        .card.faq-card .faq-trigger {
+            width: 100%;
+            margin-top: 8px;
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            text-align: left;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--primary);
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            cursor: pointer;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .card.faq-card .faq-trigger:hover { background: #eff6ff; border-color: #bfdbfe; }
+        .card.faq-card .faq-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .card.faq-card .faq-trigger-text { flex: 1; min-width: 0; word-break: keep-all; line-height: 1.35; }
+        .card.faq-card .faq-chevron {
+            flex-shrink: 0;
+            font-size: 0.65rem;
+            color: #64748b;
+            transition: transform 0.25s ease;
+        }
+        .card.faq-card.faq-open .faq-chevron { transform: rotate(180deg); color: var(--accent); }
+        .card.faq-card.faq-open .faq-trigger {
+            border-radius: 10px 10px 0 0;
+            border-bottom-color: transparent;
+        }
+        .card.faq-card .faq-panel {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.3s ease;
+        }
+        .card.faq-card.faq-open .faq-panel { grid-template-rows: 1fr; }
+        .card.faq-card .faq-panel-inner {
+            min-height: 0;
+            overflow: hidden;
+        }
+        .card.faq-card .faq-panel-body {
+            margin-top: 10px;
+            padding: 14px 14px 16px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 0 0 10px 10px;
+            border-top: none;
+            font-size: 0.95rem;
+            line-height: 1.65;
+            color: #334155;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
         /* 모달 스타일 */
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 10px; }
         .modal-content { background: white; padding: 20px; border-radius: 16px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
@@ -778,12 +837,52 @@
             return matchCat && matchSub && matchSearch && p.status === 'approved' && !p.parentId;
         });
 
+        function bindFaqCardInteractions(card, post, children) {
+            const trigger = card.querySelector('.faq-trigger');
+            const bodyBtn = card.querySelector('.faq-toggle-body');
+            if (!trigger) return;
+            function syncBodyBtnLabel() {
+                if (!bodyBtn) return;
+                bodyBtn.textContent = card.classList.contains('faq-open') ? '내용 접기' : '내용 펼치기';
+            }
+            function toggle(e) {
+                if (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                const open = !card.classList.contains('faq-open');
+                card.classList.toggle('faq-open', open);
+                trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+                syncBodyBtnLabel();
+            }
+            trigger.addEventListener('click', toggle);
+            trigger.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggle(e);
+                }
+            });
+            if (bodyBtn) bodyBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggle(e);
+            });
+            syncBodyBtnLabel();
+            card.addEventListener('click', function (e) {
+                if (e.target.closest('button') || e.target.closest('.faq-trigger')) return;
+                if (children.length > 0) handleCardClick(post.id);
+            });
+        }
+
         filtered.forEach(post => {
             const children = allPosts.filter(p => p.parentId === post.id);
             const card = document.createElement('div');
-            card.className = `card ${children.length > 0 ? 'is-group' : ''}`;
+            const isFaqCategory = post.category === '문제해결';
+            card.className = `card ${children.length > 0 ? 'is-group' : ''}${isFaqCategory ? ' faq-card' : ''}`;
             card.setAttribute('data-id', post.id);
-            card.onclick = () => handleCardClick(post.id);
+            if (!isFaqCategory) {
+                card.onclick = () => handleCardClick(post.id);
+            }
 
             // 관리자 전용 드래그 이벤트 연결
             if (isAdmin) {
@@ -795,9 +894,46 @@
                 card.addEventListener('dragend', () => card.classList.remove('dragging'));
             }
 
-            card.innerHTML = `
+            if (isFaqCategory) {
+                const rawDesc = String(post.description || '');
+                const normalizedDesc = rawDesc.replace(/^\s+/, '');
+                const panelText = normalizedDesc.trim()
+                    ? escapeHtmlUi(normalizedDesc)
+                    : '<span style="color:#94a3b8;">등록된 상세 내용이 없습니다.</span>';
+                const showBodyBtn = normalizedDesc.trim().length > 0;
+                card.innerHTML = `
                 <div class="card-content">
-                    <span style="font-size:0.7rem; color:var(--accent); font-weight:bold;">#${post.category === '행사자료' ? '안내사항' : post.category}${post.category === '수업자료' ? ' · ' + (getPostMaterialTypesList(post).join(', ') || '기타') : ''} | ${getPostSubjectsList(post).join(', ') || '공통'}</span>
+                    <span style="font-size:0.7rem; color:var(--accent); font-weight:bold;">#${post.category === '행사자료' ? '안내사항' : post.category}${post.category === '수업자료' ? ' · ' + (getPostSubjectsList(post).join(', ') || '공통') + ' | ' + (getPostMaterialTypesList(post).join(', ') || '기타') : ' | ' + (getPostSubjectsList(post).join(', ') || '공통')}</span>
+                    <button type="button" class="faq-trigger" aria-expanded="false" aria-controls="faq-panel-${post.id}">
+                        <span class="faq-trigger-text">${escapeHtmlUi(post.title)}</span>
+                        <span class="faq-chevron" aria-hidden="true">▼</span>
+                    </button>
+                    ${children.length > 0 ? `<span style="display:block; margin-top:8px; font-size:0.7rem; color:#64748b;">📦 포함된 자료: ${children.length}개 · 카드 빈 곳을 누르면 묶음을 엽니다</span>` : ''}
+                    <div class="faq-panel" id="faq-panel-${post.id}">
+                        <div class="faq-panel-inner">
+                            <div class="faq-panel-body">${panelText}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    ${buildCardAuthorFooterHtml(post, children)}
+                    <div style="display:flex; flex-wrap:wrap; gap:4px; justify-content:flex-end;">
+                        ${(post.link_url && String(post.link_url).trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--accent); color:white;" data-open-url="${escapeHtmlAttr(String(post.link_url).trim())}">열기</button>` : ''}
+                        ${showBodyBtn ? `<button type="button" class="btn btn-mini faq-toggle-body" style="background:var(--success); color:white;">내용 펼치기</button>` : ''}
+                        ${isAdmin || user?.email === post.author ?
+                            `<button type="button" class="btn btn-mini" style="background:#64748b; color:white;"
+                                onclick="event.stopPropagation(); openEditModal('${post.id}')">
+                                ${allPosts.some(p => p.parentId === post.id) ? '📂 폴더 수정' : '수정'}
+                            </button>` : ''}
+                        ${isAdmin ? `<button type="button" class="btn btn-mini" style="background:var(--admin-color); color:white;" onclick="event.stopPropagation(); deletePost('${post.id}')">삭제</button>` : ''}
+                    </div>
+                </div>
+            `;
+                bindFaqCardInteractions(card, post, children);
+            } else {
+                card.innerHTML = `
+                <div class="card-content">
+                    <span style="font-size:0.7rem; color:var(--accent); font-weight:bold;">#${post.category === '행사자료' ? '안내사항' : post.category}${post.category === '수업자료' ? ' · ' + (getPostSubjectsList(post).join(', ') || '공통') + ' | ' + (getPostMaterialTypesList(post).join(', ') || '기타') : ' | ' + (getPostSubjectsList(post).join(', ') || '공통')}</span>
                     <h3 style="margin:5px 0;">${post.title}</h3>
                     ${children.length > 0 ? `<span style="font-size:0.7rem; color:#64748b;">📦 포함된 자료: ${children.length}개</span>` : ''}
                 </div>
@@ -806,15 +942,16 @@
                     <div style="display:flex; flex-wrap:wrap; gap:4px; justify-content:flex-end;">
                         ${(post.link_url && String(post.link_url).trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--accent); color:white;" data-open-url="${escapeHtmlAttr(String(post.link_url).trim())}">열기</button>` : ''}
                         ${(String(post.description || '').trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--success); color:white;" onclick="event.stopPropagation(); showTextDetail('${post.id}')">내용</button>` : ''}
-                        ${isAdmin || user?.email === post.author ? 
-                            `<button type="button" class="btn btn-mini" style="background:#64748b; color:white;" 
+                        ${isAdmin || user?.email === post.author ?
+                            `<button type="button" class="btn btn-mini" style="background:#64748b; color:white;"
                                 onclick="event.stopPropagation(); openEditModal('${post.id}')">
-                                ${allPosts.some(p => p.parentId === post.id) ? '📂 폴더 수정' : '수정'} 
+                                ${allPosts.some(p => p.parentId === post.id) ? '📂 폴더 수정' : '수정'}
                             </button>` : ''}
                         ${isAdmin ? `<button type="button" class="btn btn-mini" style="background:var(--admin-color); color:white;" onclick="event.stopPropagation(); deletePost('${post.id}')">삭제</button>` : ''}
                     </div>
                 </div>
             `;
+            }
             container.appendChild(card);
             if (children.length > 0) {
                 const authEl = card.querySelector('.bundle-author-longpress');
