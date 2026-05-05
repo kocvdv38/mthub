@@ -634,6 +634,27 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
     }
+    /** HTML 속성값용 (data-open-url 등) */
+    function escapeHtmlAttr(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;');
+    }
+
+    function setupOpenLinkDelegation(rootEl) {
+        if (!rootEl || rootEl.dataset.openLinkDelegated === '1') return;
+        rootEl.dataset.openLinkDelegated = '1';
+        rootEl.addEventListener('click', function (e) {
+            const btn = e.target && e.target.closest && e.target.closest('[data-open-url]');
+            if (!btn || !rootEl.contains(btn)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const u = String(btn.getAttribute('data-open-url') || '').trim();
+            if (u) window.open(u, '_blank', 'noopener,noreferrer');
+        }, true);
+    }
     function authorAccountLocal(email) {
         const t = String(email || '').trim();
         if (!t) return '(알 수 없음)';
@@ -783,7 +804,7 @@
                 <div class="card-footer">
                     ${buildCardAuthorFooterHtml(post, children)}
                     <div style="display:flex; flex-wrap:wrap; gap:4px; justify-content:flex-end;">
-                        ${(post.link_url && String(post.link_url).trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--accent); color:white;" onclick="event.stopPropagation(); window.open(${JSON.stringify(String(post.link_url).trim())}, '_blank')">열기</button>` : ''}
+                        ${(post.link_url && String(post.link_url).trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--accent); color:white;" data-open-url="${escapeHtmlAttr(String(post.link_url).trim())}">열기</button>` : ''}
                         ${(String(post.description || '').trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--success); color:white;" onclick="event.stopPropagation(); showTextDetail('${post.id}')">내용</button>` : ''}
                         ${isAdmin || user?.email === post.author ? 
                             `<button type="button" class="btn btn-mini" style="background:#64748b; color:white;" 
@@ -845,7 +866,7 @@ window.handleCardClick = (id) => {
                 </div>
                 <div style="display:flex; flex-wrap:wrap; gap:4px; flex-shrink:0; margin-left:10px; justify-content:flex-end;">
                     ${isAdmin ? `<button type="button" class="btn btn-mini" style="background:var(--warning); color:white;" onclick="event.stopPropagation(); openEditModal('${item.id}')">수정</button>` : ''}
-                    ${(item.link_url && String(item.link_url).trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--accent); color:white;" onclick="event.stopPropagation(); window.open(${JSON.stringify(String(item.link_url).trim())}, '_blank')">열기</button>` : ''}
+                    ${(item.link_url && String(item.link_url).trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--accent); color:white;" data-open-url="${escapeHtmlAttr(String(item.link_url).trim())}">열기</button>` : ''}
                     ${(String(item.description || '').trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--success); color:white;" onclick="event.stopPropagation(); showTextDetail('${item.id}')">내용</button>` : ''}
                     ${isAdmin && item.parentId ? `<button type="button" class="btn btn-mini" style="background:#cbd5e1;" onclick="event.stopPropagation(); removeFromGroup('${item.id}')">해제</button>` : ''}
                 </div>
@@ -987,6 +1008,9 @@ window.openEditModal = (id) => {
     });
 
     window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
+    setupOpenLinkDelegation(document.getElementById('posts-container'));
+    setupOpenLinkDelegation(document.getElementById('group-items-list'));
+
     document.getElementById('login-btn').onclick = () => signInWithPopup(auth, provider);
     document.getElementById('logout-btn').onclick = () => signOut(auth);
     document.getElementById('open-submit-btn').onclick = () => { 
