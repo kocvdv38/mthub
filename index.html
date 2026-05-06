@@ -326,7 +326,7 @@
     <div class="modal-content">
         <h3 style="margin-top:0;">📦 자료 묶음</h3>
         <div id="group-items-list"></div>
-        <button onclick="closeModal('group-modal')" class="btn" style="width:100%; margin-top:20px; background:#eee;">닫기</button>
+        <button type="button" id="group-modal-footer-btn" class="btn" style="width:100%; margin-top:20px; background:#eee;">닫기</button>
     </div>
 </div>
 
@@ -961,6 +961,23 @@
         });
     }
 
+/** 자료 묶음 모달 하단「닫기」: 묶음 목록일 때는 모달 종료, 항목「내용」보기 중에는 묶음 목록만 복귀 */
+window.syncGroupModalFooter = function (mode, bundleRootId) {
+    const foot = document.getElementById('group-modal-footer-btn');
+    if (!foot) return;
+    if (mode === 'bundle-detail' && bundleRootId) {
+        foot.textContent = '닫기';
+        foot.onclick = function () {
+            window.handleCardClick(bundleRootId);
+        };
+    } else {
+        foot.textContent = '닫기';
+        foot.onclick = function () {
+            window.closeModal('group-modal');
+        };
+    }
+};
+
 // --- 카드 클릭 시 (상세 보기 또는 묶음 열기) ---
 window.handleCardClick = (id) => {
     const isAdmin = auth.currentUser?.email === ADMIN_EMAIL;
@@ -1005,12 +1022,13 @@ window.handleCardClick = (id) => {
                 <div style="display:flex; flex-wrap:wrap; gap:4px; flex-shrink:0; margin-left:10px; justify-content:flex-end;">
                     ${isAdmin ? `<button type="button" class="btn btn-mini" style="background:var(--warning); color:white;" onclick="event.stopPropagation(); openEditModal('${item.id}')">수정</button>` : ''}
                     ${(item.link_url && String(item.link_url).trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--accent); color:white;" data-open-url="${escapeHtmlAttr(String(item.link_url).trim())}">열기</button>` : ''}
-                    ${(String(item.description || '').trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--success); color:white;" onclick="event.stopPropagation(); showTextDetail('${item.id}')">내용</button>` : ''}
+                    ${(String(item.description || '').trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--success); color:white;" onclick="event.stopPropagation(); showTextDetail(${JSON.stringify(item.id)}, ${JSON.stringify(id)})">내용</button>` : ''}
                     ${isAdmin && item.parentId ? `<button type="button" class="btn btn-mini" style="background:#cbd5e1;" onclick="event.stopPropagation(); removeFromGroup('${item.id}')">해제</button>` : ''}
                 </div>
             `;
             list.appendChild(div);
         });
+        syncGroupModalFooter('bundle-list');
         document.getElementById('group-modal').classList.remove('hidden');
     } else {
         // 자식이 없는 일반 카드인 경우
@@ -1018,18 +1036,21 @@ window.handleCardClick = (id) => {
         else showTextDetail(id);
     }
 };
-// 텍스트 상세 내용을 보여주기 위한 보조 함수 (이것도 함께 복사해서 붙여넣어 주세요)
-window.showTextDetail = (id) => {
+// 텍스트 상세 내용을 보여주기 위한 보조 함수 (bundleRootId 있으면 하단 버튼이 묶음 목록 복귀)
+window.showTextDetail = (id, bundleRootId) => {
     const post = allPosts.find(p => p.id === id);
     const list = document.getElementById('group-items-list');
     const rawDesc = String((post && post.description) || "");
     const normalizedDesc = rawDesc.replace(/^\s+/, '');
-    
+    const titleSafe = escapeHtmlUi(post && post.title != null ? post.title : '');
+    const bodySafe = normalizedDesc.trim() ? escapeHtmlUi(normalizedDesc) : '등록된 상세 내용이 없습니다.';
     list.innerHTML = `<div style="padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <h4 style="margin-top:0; color:var(--primary);">${post.title}</h4>
-            <div style="white-space: pre-wrap; line-height: 1.6; font-size: 0.95rem; color: #334155;">${normalizedDesc || "등록된 상세 내용이 없습니다."}</div>
+            <h4 style="margin-top:0; color:var(--primary);">${titleSafe}</h4>
+            <div style="white-space: pre-wrap; line-height: 1.6; font-size: 0.95rem; color: #334155;">${bodySafe}</div>
         </div>`;
     document.getElementById('group-modal').classList.remove('hidden');
+    if (bundleRootId) syncGroupModalFooter('bundle-detail', bundleRootId);
+    else syncGroupModalFooter('bundle-list');
 };
 
     window.removeFromGroup = async (id) => {
