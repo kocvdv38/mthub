@@ -282,8 +282,13 @@
         </div>
         <div id="admin-subject-tools" class="hidden" style="margin-top:8px;">
             <input type="text" id="new-subject-name" placeholder="새 과목 추가..." style="width:180px; padding:4px; font-size:12px;">
-            <button onclick="addCategoryOption()" class="btn-mini" style="background:var(--primary); color:white;">추가</button>
+            <button type="button" onclick="addCategoryOption()" class="btn-mini" style="background:var(--primary); color:white;">추가</button>
         </div>
+        <div id="admin-material-type-tools" class="hidden" style="margin-top:8px;">
+            <input type="text" id="new-material-type-name" placeholder="새 수업자료 구분 추가..." style="width:200px; padding:4px; font-size:12px;">
+            <button type="button" onclick="addMaterialTypeOption()" class="btn-mini" style="background:var(--accent); color:white;">구분 추가</button>
+        </div>
+        <div class="subject-bar hidden" id="material-type-list" style="margin-top:10px; padding-top:10px; border-top:1px dashed #e2e8f0;"></div>
         <p id="admin-instruction" class="hidden" style="font-size:0.75rem; color:var(--accent); margin-top:10px;">💡 관리자 모드: 카드를 다른 카드 위로 드래그하여 자료를 묶을 수 있습니다.</p>
     </div>
 </section>
@@ -364,8 +369,10 @@
     let allSubjects = [];
     let allClassGroups = [];
     let allEventGroups = [];
+    let allMaterialTypes = [];
     let currentCat = 'all';
     let currentSub = 'all';
+    let currentMatFilter = 'all';
     let currentSearch = '';
     let draggedId = null;
 
@@ -381,8 +388,20 @@
         if (col === 'classGroups' && !allClassGroups.some(x => String(x.name || '') === name)) allClassGroups.push({ name });
         if (col === 'eventGroups' && !allEventGroups.some(x => String(x.name || '') === name)) allEventGroups.push({ name });
         if (col === 'subjects' && !allSubjects.some(x => String(x.name || '') === name)) allSubjects.push({ name });
-        document.getElementById('new-subject-name').value = "";
+        document.getElementById('new-subject-name').value = '';
         renderSubjects();
+        render();
+    };
+    window.addMaterialTypeOption = async function () {
+        if (currentCat !== '수업자료') return;
+        const el = document.getElementById('new-material-type-name');
+        const name = el && String(el.value || '').trim();
+        if (!name) return;
+        await addDoc(collection(db, 'materialTypes'), { name, created_at: serverTimestamp() });
+        if (!allMaterialTypes.some(x => formOptionDisplayName(x) === name)) allMaterialTypes.push({ name });
+        el.value = '';
+        renderMaterialTypeFilterBar();
+        renderMaterialTypeCheckboxes(undefined);
         render();
     };
     async function deleteCategoryOptionByName(name) {
@@ -409,6 +428,37 @@
             if (col === 'subjects') allSubjects = allSubjects.filter(x => formOptionDisplayName(x) !== targetName);
             if (currentSub === targetName) currentSub = 'all';
             renderSubjects();
+            render();
+            return true;
+        } catch (e) {
+            alert('삭제 중 오류가 발생했습니다.');
+            return false;
+        }
+    }
+    async function deleteMaterialTypeOptionByName(name) {
+        const targetName = String(name || '').trim();
+        if (!targetName) return false;
+        const inDb = allMaterialTypes.some(function (x) { return formOptionDisplayName(x) === targetName; });
+        if (!inDb) {
+            alert('기본 제공 구분은 삭제할 수 없습니다. (Firestore에 등록된 구분만 삭제됩니다)');
+            return false;
+        }
+        try {
+            var snap = await getDocs(query(collection(db, 'materialTypes'), where('name', '==', targetName)));
+            if (snap.empty) {
+                snap = await getDocs(query(collection(db, 'materialTypes'), where('label', '==', targetName)));
+            }
+            if (snap.empty) {
+                alert('이미 삭제되었거나 찾을 수 없습니다.');
+                return false;
+            }
+            const jobs = [];
+            snap.forEach(function (d) { jobs.push(deleteDoc(doc(db, 'materialTypes', d.id))); });
+            await Promise.all(jobs);
+            allMaterialTypes = allMaterialTypes.filter(function (x) { return formOptionDisplayName(x) !== targetName; });
+            if (currentMatFilter === targetName) currentMatFilter = 'all';
+            renderMaterialTypeFilterBar();
+            renderMaterialTypeCheckboxes(undefined);
             render();
             return true;
         } catch (e) {
@@ -447,7 +497,16 @@
         if (s.indexOf(',') >= 0) return s.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
         return [s];
     }
-    const MATERIAL_TYPE_OPTIONS = ['PPT', '학습자료', '평가', '기타'];
+    const MATERIAL_TYPE_DEFAULTS = ['PPT', '학습자료', '평가', '기타'];
+    function getMaterialTypeOptionsSorted() {
+        const set = {};
+        MATERIAL_TYPE_DEFAULTS.forEach(function (t) { set[t] = true; });
+        allMaterialTypes.forEach(function (item) {
+            const d = formOptionDisplayName(item);
+            if (d) set[d] = true;
+        });
+        return Object.keys(set).sort(function (a, b) { return a.localeCompare(b, 'ko'); });
+    }
     function getPostMaterialTypesList(post) {
         if (!post) return [];
         if (Array.isArray(post.material_types) && post.material_types.length) {
@@ -479,7 +538,7 @@
         (normalized === null ? getCheckedMaterialTypesFromDom() : normalized).forEach(function (t) { selectedSet[t] = true; });
         wrap.innerHTML = '';
         var rowIdx = 0;
-        MATERIAL_TYPE_OPTIONS.forEach(function (opt) {
+        getMaterialTypeOptionsSorted().forEach(function (opt) {
             const row = document.createElement('div');
             row.className = 'form-subject-row';
             const cb = document.createElement('input');
@@ -568,7 +627,11 @@
         if (!input) return;
         if (currentCat === '학급운영') input.placeholder = '새 학급운영 구분 추가...';
         else if (currentCat === '안내사항' || currentCat === '행사자료') input.placeholder = '새 안내사항 구분 추가...';
+        else if (currentCat === '수업자료') input.placeholder = '새 과목 추가...';
         else input.placeholder = '새 과목 추가...';
+        const matTools = document.getElementById('admin-material-type-tools');
+        const isAdmin = auth.currentUser?.email === ADMIN_EMAIL;
+        if (matTools) matTools.classList.toggle('hidden', !isAdmin || currentCat !== '수업자료');
     }
 
     function isTopOptionFilterEnabled() {
@@ -640,7 +703,74 @@
         if (currentSub !== 'all' && !validNames[currentSub]) currentSub = 'all';
         renderFormSubjectOptions();
         updateAdminListToolUi();
+        renderMaterialTypeFilterBar();
     }
+    function renderMaterialTypeFilterBar() {
+        const list = document.getElementById('material-type-list');
+        if (!list) return;
+        if (currentCat !== '수업자료') {
+            list.classList.add('hidden');
+            list.innerHTML = '';
+            return;
+        }
+        list.classList.remove('hidden');
+        const isAdmin = auth.currentUser?.email === ADMIN_EMAIL;
+        const opts = getMaterialTypeOptionsSorted();
+        const valid = {};
+        list.innerHTML = '<span style="font-size:0.8rem; font-weight:bold; color:#64748b;">수업자료 구분: </span><button type="button" class="subject-tag ' + (currentMatFilter === 'all' ? 'active' : '') + '" data-mat="all">전체</button>';
+        list.querySelector('[data-mat="all"]').addEventListener('click', function () { window.filterByMatType('all'); });
+        opts.forEach(function (label) {
+            valid[label] = true;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'subject-tag' + (currentMatFilter === label ? ' active' : '');
+            btn.setAttribute('data-mat', label);
+            btn.textContent = label;
+            let pressTimer = null;
+            let consumedByLongPress = false;
+            function clearPressTimer() {
+                if (!pressTimer) return;
+                clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+            if (isAdmin) {
+                btn.addEventListener('pointerdown', function () {
+                    consumedByLongPress = false;
+                    clearPressTimer();
+                    pressTimer = setTimeout(async function () {
+                        pressTimer = null;
+                        consumedByLongPress = true;
+                        if (confirm('"' + label + '" 수업자료 구분을 삭제하시겠습니까?')) {
+                            await deleteMaterialTypeOptionByName(label);
+                        }
+                    }, 500);
+                });
+                btn.addEventListener('pointerup', clearPressTimer);
+                btn.addEventListener('pointerleave', clearPressTimer);
+                btn.addEventListener('pointercancel', clearPressTimer);
+                btn.addEventListener('contextmenu', function (e) {
+                    e.preventDefault();
+                    clearPressTimer();
+                });
+            }
+            btn.addEventListener('click', function (e) {
+                if (consumedByLongPress) {
+                    consumedByLongPress = false;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                window.filterByMatType(label);
+            });
+            list.appendChild(btn);
+        });
+        if (currentMatFilter !== 'all' && !valid[currentMatFilter]) currentMatFilter = 'all';
+    }
+    window.filterByMatType = function (name) {
+        currentMatFilter = name;
+        renderMaterialTypeFilterBar();
+        render();
+    };
     window.filterBySub = (name) => { currentSub = name; renderSubjects(); render(); };
     window.toggleMaterialTypeField = () => {
         const catEl = document.getElementById('form-category');
@@ -650,7 +780,8 @@
         wrap.style.display = on ? 'block' : 'none';
         if (on) {
             renderMaterialTypeCheckboxes(undefined);
-            if (!getCheckedMaterialTypesFromDom().length) renderMaterialTypeCheckboxes(['PPT']);
+            const first = getMaterialTypeOptionsSorted()[0] || 'PPT';
+            if (!getCheckedMaterialTypesFromDom().length) renderMaterialTypeCheckboxes([first]);
         }
         renderFormSubjectOptions();
     };
@@ -823,8 +954,12 @@
                 (currentCat === '안내사항' && p.category === '행사자료');
             const subList = getPostSubjectsList(p);
             const matchSub = !isTopOptionFilterEnabled() || currentSub === 'all' || subList.indexOf(currentSub) >= 0;
-            const q = String(currentSearch || '').trim().toLowerCase();
             const matList = getPostMaterialTypesList(p);
+            const matchMat =
+                currentCat !== '수업자료' ||
+                currentMatFilter === 'all' ||
+                matList.indexOf(currentMatFilter) >= 0;
+            const q = String(currentSearch || '').trim().toLowerCase();
             const haystack = [
                 subList.join(' '),
                 String(p.subject || ''),         // 과목/구분(단일·콤마 호환)
@@ -835,7 +970,7 @@
             ].join(' ').toLowerCase();
             const matchSearch = !q || haystack.indexOf(q) >= 0;
             // parentId가 없는(최상위) 자료만 메인에 표시
-            return matchCat && matchSub && matchSearch && p.status === 'approved' && !p.parentId;
+            return matchCat && matchSub && matchMat && matchSearch && p.status === 'approved' && !p.parentId;
         });
 
         function bindFaqCardInteractions(card, post, children) {
@@ -1115,6 +1250,12 @@ window.showTextDetail = (id, bundleRootId) => {
         allEventGroups = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         renderFormSubjectOptions();
     });
+    onSnapshot(collection(db, "materialTypes"), (snap) => {
+        allMaterialTypes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderMaterialTypeFilterBar();
+        renderMaterialTypeCheckboxes(undefined);
+        render();
+    });
 
     onAuthStateChanged(auth, (user) => {
         const isAdmin = user?.email === ADMIN_EMAIL;
@@ -1164,6 +1305,7 @@ window.openEditModal = (id) => {
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             currentCat = btn.getAttribute('data-cat');
+            currentMatFilter = 'all';
             renderSubjects();
             updateAdminListToolUi();
             render();
@@ -1183,7 +1325,8 @@ window.openEditModal = (id) => {
     document.getElementById('open-submit-btn').onclick = () => { 
         document.getElementById('edit-id').value = ""; 
         document.getElementById('resource-form').reset(); 
-        renderMaterialTypeCheckboxes(['PPT']);
+        var _mt0 = getMaterialTypeOptionsSorted();
+        renderMaterialTypeCheckboxes(_mt0.length ? [_mt0[0]] : []);
         renderFormSubjectOptions([]);
         if (typeof toggleMaterialTypeField === 'function') toggleMaterialTypeField();
         document.getElementById('form-modal').classList.remove('hidden'); 
