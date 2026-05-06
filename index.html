@@ -962,7 +962,7 @@
     }
 
 /** 자료 묶음 모달 하단「닫기」: 묶음 목록일 때는 모달 종료, 항목「내용」보기 중에는 묶음 목록만 복귀 */
-window.syncGroupModalFooter = function (mode, bundleRootId) {
+function syncGroupModalFooter(mode, bundleRootId) {
     const foot = document.getElementById('group-modal-footer-btn');
     if (!foot) return;
     if (mode === 'bundle-detail' && bundleRootId) {
@@ -976,7 +976,8 @@ window.syncGroupModalFooter = function (mode, bundleRootId) {
             window.closeModal('group-modal');
         };
     }
-};
+}
+window.syncGroupModalFooter = syncGroupModalFooter;
 
 // --- 카드 클릭 시 (상세 보기 또는 묶음 열기) ---
 window.handleCardClick = (id) => {
