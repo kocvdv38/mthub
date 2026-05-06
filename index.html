@@ -1018,15 +1018,22 @@ window.handleCardClick = (id) => {
             div.innerHTML = `
                 <div style="flex:1; display:flex; align-items:center; gap:10px; overflow:hidden;">
                     ${isAdmin ? `<span style="color:#cbd5e1; cursor:grab; flex-shrink:0;">☰</span>` : ''}
-                    <span class="sub-item-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.title}</span>
+                    <span class="sub-item-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtmlUi(item.title)}</span>
                 </div>
                 <div style="display:flex; flex-wrap:wrap; gap:4px; flex-shrink:0; margin-left:10px; justify-content:flex-end;">
                     ${isAdmin ? `<button type="button" class="btn btn-mini" style="background:var(--warning); color:white;" onclick="event.stopPropagation(); openEditModal('${item.id}')">수정</button>` : ''}
                     ${(item.link_url && String(item.link_url).trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--accent); color:white;" data-open-url="${escapeHtmlAttr(String(item.link_url).trim())}">열기</button>` : ''}
-                    ${(String(item.description || '').trim()) ? `<button type="button" class="btn btn-mini" style="background:var(--success); color:white;" onclick="event.stopPropagation(); showTextDetail(${JSON.stringify(item.id)}, ${JSON.stringify(id)})">내용</button>` : ''}
+                    ${(String(item.description || '').trim()) ? `<button type="button" class="btn btn-mini sub-item-detail-btn" style="background:var(--success); color:white;">내용</button>` : ''}
                     ${isAdmin && item.parentId ? `<button type="button" class="btn btn-mini" style="background:#cbd5e1;" onclick="event.stopPropagation(); removeFromGroup('${item.id}')">해제</button>` : ''}
                 </div>
             `;
+            const detailBtn = div.querySelector('.sub-item-detail-btn');
+            if (detailBtn) {
+                detailBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    window.showTextDetail(item.id, id);
+                });
+            }
             list.appendChild(div);
         });
         syncGroupModalFooter('bundle-list');
