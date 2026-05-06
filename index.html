@@ -141,7 +141,8 @@
         }
 
         /* 카드 그리드 및 드래그 스타일 */
-        .posts-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin: 20px 0 50px 0; }
+        /* align-items: start — 같은 행에서 한 카드만 펼쳐도 옆 카드 높이가 늘어나지 않음 */
+        .posts-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin: 20px 0 50px 0; align-items: start; }
         @media (min-width: 640px) { .posts-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (min-width: 1024px) { .posts-grid { grid-template-columns: repeat(3, 1fr); } }
 
