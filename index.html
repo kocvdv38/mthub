@@ -249,6 +249,18 @@
         /* 모달 스타일 */
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 10px; }
         .modal-content { background: white; padding: 20px; border-radius: 16px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+        .login-prompt-content { max-width: 380px; text-align: center; padding: 28px 22px 22px; border: 1px solid #e2e8f0; box-shadow: 0 12px 40px rgba(30, 64, 175, 0.18); }
+        .login-prompt-icon {
+            width: 56px; height: 56px; margin: 0 auto 14px;
+            display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border-radius: 50%; font-size: 1.6rem;
+        }
+        .login-prompt-content h3 { margin: 0 0 8px; color: var(--primary); font-size: 1.15rem; font-weight: 700; }
+        .login-prompt-desc { margin: 0 0 22px; color: #64748b; font-size: 0.92rem; line-height: 1.55; }
+        .login-prompt-actions { display: flex; gap: 10px; }
+        .login-prompt-btn-secondary { flex: 1; background: #f1f5f9; color: #475569; }
+        .login-prompt-btn-primary { flex: 1.25; }
         
         .sub-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; background: white; }
         .sub-item-title { flex: 1; font-size: 0.95rem; font-weight: 500; }
@@ -365,6 +377,19 @@
     </div>
 </div>
 
+<!-- 로그인 안내 모달 -->
+<div id="login-prompt-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="login-prompt-title">
+    <div class="modal-content login-prompt-content">
+        <div class="login-prompt-icon" aria-hidden="true">🔐</div>
+        <h3 id="login-prompt-title">로그인이 필요합니다</h3>
+        <p class="login-prompt-desc">자료 내용·링크·묶음을 보려면<br>Google 계정으로 로그인해 주세요.</p>
+        <div class="login-prompt-actions">
+            <button type="button" id="login-prompt-close-btn" class="btn login-prompt-btn-secondary">닫기</button>
+            <button type="button" id="login-prompt-login-btn" class="btn btn-submit login-prompt-btn-primary">Google 로그인</button>
+        </div>
+    </div>
+</div>
+
 <!-- 묶음 등록자별 목록 (부모 카드 작성자 영역 롱프레스) -->
 <div id="bundle-authors-modal" class="modal hidden">
     <div class="modal-content" style="max-width: 520px;">
@@ -401,12 +426,17 @@
         const u = auth.currentUser;
         return !!(u && !u.isAnonymous);
     }
+    function showLoginPromptModal() {
+        const modal = document.getElementById('login-prompt-modal');
+        if (modal) modal.classList.remove('hidden');
+    }
     function requireLoginForView() {
         if (isLoggedInUser()) return true;
-        alert('로그인 후 내용을 확인할 수 있습니다.');
+        showLoginPromptModal();
         return false;
     }
     window.requireLoginForView = requireLoginForView;
+    window.showLoginPromptModal = showLoginPromptModal;
 
     async function ensureGuestAuth() {
         if (auth.currentUser) return;
@@ -1456,6 +1486,14 @@ window.openEditModal = (id) => {
         }
     }
     document.getElementById('login-btn').onclick = handleLogin;
+    document.getElementById('login-prompt-close-btn').onclick = () => closeModal('login-prompt-modal');
+    document.getElementById('login-prompt-login-btn').onclick = () => {
+        closeModal('login-prompt-modal');
+        handleLogin();
+    };
+    document.getElementById('login-prompt-modal').addEventListener('click', function (e) {
+        if (e.target === this) closeModal('login-prompt-modal');
+    });
     document.getElementById('logout-btn').onclick = async () => {
         await signOut(auth);
         await ensureGuestAuth();
