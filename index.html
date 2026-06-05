@@ -9,6 +9,11 @@
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <title>ME-Link | 관리자 드래그 그룹화 모드</title>
+    <script>
+        if (location.protocol === 'file:') {
+            location.replace('https://krmelink.vercel.app/');
+        }
+    </script>
     <style>
         :root {
             --primary: #1e40af; --accent: #3b82f6; --bg: #f1f5f9;
@@ -348,7 +353,7 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyADdq0ZHWBB8okvyE1r9C17AYVXs7ZvE38",
@@ -363,7 +368,9 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
     const ADMIN_EMAIL = 'kocvdv38@gmail.com';
+    let loginInProgress = false;
 
     let allPosts = [];
     let allSubjects = [];
@@ -1320,7 +1327,53 @@ window.openEditModal = (id) => {
     setupOpenLinkDelegation(document.getElementById('posts-container'));
     setupOpenLinkDelegation(document.getElementById('group-items-list'));
 
-    document.getElementById('login-btn').onclick = () => signInWithPopup(auth, provider);
+    async function handleLogin() {
+        if (loginInProgress) return;
+        if (location.protocol === 'file:') {
+            location.replace('https://krmelink.vercel.app/');
+            return;
+        }
+        loginInProgress = true;
+        const loginBtn = document.getElementById('login-btn');
+        const prevLabel = loginBtn.textContent;
+        loginBtn.disabled = true;
+        loginBtn.textContent = '로그인 중...';
+        try {
+            await signInWithPopup(auth, provider);
+        } catch (e) {
+            const code = String(e && e.code || '');
+            if (code === 'auth/popup-closed-by-user') {
+                return;
+            }
+            if (code === 'auth/cancelled-popup-request') {
+                return;
+            }
+            if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+                try {
+                    await signInWithRedirect(auth, provider);
+                    return;
+                } catch (e2) {
+                    alert('로그인 실패: ' + (e2.message || e2));
+                }
+            } else if (code === 'auth/unauthorized-domain') {
+                alert('이 주소는 Firebase 인증에 등록되지 않았습니다.\nFirebase 콘솔 → Authentication → Settings → Authorized domains에\nkrmelink.vercel.app 을 추가해 주세요.');
+            } else {
+                alert('로그인 실패: ' + (e.message || e));
+            }
+        } finally {
+            loginInProgress = false;
+            loginBtn.disabled = false;
+            loginBtn.textContent = prevLabel;
+        }
+    }
+    try {
+        await getRedirectResult(auth);
+    } catch (e) {
+        if (e && e.code !== 'auth/no-auth-event') {
+            console.error('redirect login error', e);
+        }
+    }
+    document.getElementById('login-btn').onclick = handleLogin;
     document.getElementById('logout-btn').onclick = () => signOut(auth);
     document.getElementById('open-submit-btn').onclick = () => { 
         document.getElementById('edit-id').value = ""; 
