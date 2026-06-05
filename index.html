@@ -228,7 +228,6 @@
         .sub-item-title { flex: 1; font-size: 0.95rem; font-weight: 500; }
         
         .btn-mini { padding: 4px 8px; font-size: 0.7rem; border-radius: 4px; border: none; cursor: pointer; }
-        .badge { background: var(--admin-color); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 10px; margin-left: 3px; }
         .hidden { display: none !important; }
 
         .bundle-author-longpress {
@@ -277,9 +276,6 @@
             <button class="filter-btn" data-cat="수업자료">수업자료</button>
             <button class="filter-btn" data-cat="문제해결">문제해결</button>
             <button class="filter-btn" data-cat="안내사항">안내사항</button>
-            <button id="admin-tab" class="filter-btn hidden" style="border:2px solid var(--admin-color); color:var(--admin-color);" data-cat="pending">
-                대기<span id="pending-count" class="badge">0</span>
-            </button>
         </div>
         <div class="subject-bar" id="subject-list">
             <span style="font-size:0.8rem; font-weight:bold; color:#64748b;">과목: </span>
@@ -954,7 +950,6 @@
         const isAdmin = user?.email === ADMIN_EMAIL;
 
         let filtered = allPosts.filter(p => {
-            if (currentCat === 'pending') return p.status === 'pending';
             const matchCat =
                 currentCat === 'all' ||
                 p.category === currentCat ||
@@ -1231,7 +1226,7 @@ window.showTextDetail = (id, bundleRootId) => {
             subject: subject,
             link_url: document.getElementById('form-url').value,
             description: document.getElementById('form-desc').value,
-            status: (user.email === ADMIN_EMAIL) ? "approved" : "pending",
+            status: "approved",
             updated_at: serverTimestamp()
         };
         if (editId) await updateDoc(doc(db, "posts", editId), data);
@@ -1241,7 +1236,6 @@ window.showTextDetail = (id, bundleRootId) => {
 
     onSnapshot(collection(db, "posts"), (snap) => {
         allPosts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        document.getElementById('pending-count').innerText = allPosts.filter(p => p.status === 'pending').length;
         render();
     });
 
@@ -1266,7 +1260,6 @@ window.showTextDetail = (id, bundleRootId) => {
 
     onAuthStateChanged(auth, (user) => {
         const isAdmin = user?.email === ADMIN_EMAIL;
-        document.getElementById('admin-tab').classList.toggle('hidden', !isAdmin);
         document.getElementById('admin-subject-tools').classList.toggle('hidden', !isAdmin);
         document.getElementById('admin-instruction').classList.toggle('hidden', !isAdmin);
         document.getElementById('user-ui').classList.toggle('hidden', !user);
