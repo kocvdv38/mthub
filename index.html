@@ -25,9 +25,35 @@
         .container { max-width: 1100px; margin: 0 auto; padding: 0 15px; }
 
         header { background: var(--primary); color: white; padding: 0.8rem 0; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        nav { display: flex; justify-content: space-between; align-items: center; }
-        .nav-left { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-        .logo { font-size: 1.3rem; font-weight: bold; cursor: pointer; }
+        .header-nav { display: flex; flex-direction: column; gap: 0.55rem; align-items: stretch; }
+        .logo {
+            font-size: clamp(0.55rem, 3.2vw, 1.3rem);
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+            line-height: 1.25;
+            width: 100%;
+            min-width: 0;
+        }
+        .nav-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+        }
+        .nav-auth-wrap { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+        .nav-auth-btns { display: flex; align-items: center; gap: 8px; }
+        @media (max-width: 767px) {
+            .nav-actions .btn { padding: 8px 12px; font-size: 0.85rem; white-space: nowrap; }
+            .nav-actions .btn-logout { padding: 8px 10px; font-size: 0.8rem; }
+        }
+        @media (min-width: 768px) {
+            .header-nav { flex-direction: row; justify-content: space-between; align-items: center; gap: 14px; }
+            .logo { font-size: 1.15rem; width: auto; flex: 1; min-width: 0; }
+            .nav-actions { width: auto; flex-shrink: 0; margin-left: auto; }
+            .nav-auth-wrap { margin-left: 0; }
+        }
         .nav-cafe-link {
             color: rgba(255, 255, 255, 0.95);
             font-size: 0.95rem;
@@ -252,16 +278,16 @@
 <body>
 
 <header>
-    <nav class="container">
-        <div class="nav-left">
-            <div class="logo" onclick="location.reload()">⚙️ ME-Link: 기계교육과 나를 연결하다</div>
+    <nav class="container header-nav">
+        <div class="logo" id="header-logo" onclick="location.reload()">⚙️ ME-Link: 기계교육과 나를 연결하다</div>
+        <div class="nav-actions">
             <a href="https://cafe.naver.com/daveju" target="_blank" rel="noopener noreferrer" class="nav-cafe-link">Cafe</a>
-        </div>
-        <div id="auth-ui">
-            <button id="login-btn" class="btn btn-login">로그인</button>
-            <div id="user-ui" class="hidden" style="display:flex; gap:8px; align-items:center;">
-                <button id="open-submit-btn" class="btn btn-submit">등록</button>
-                <button id="logout-btn" class="btn btn-logout">나가기</button>
+            <div id="auth-ui" class="nav-auth-wrap">
+                <button id="login-btn" class="btn btn-login">로그인</button>
+                <div id="user-ui" class="nav-auth-btns hidden">
+                    <button id="open-submit-btn" class="btn btn-submit">등록</button>
+                    <button id="logout-btn" class="btn btn-logout">나가기</button>
+                </div>
             </div>
         </div>
     </nav>
@@ -1456,9 +1482,25 @@ async function handleSubDrop(e) {
     await Promise.all(promises);
     // UI 업데이트를 위해 약간의 지연 후 리렌더링
     setTimeout(() => handleCardClick(parentId), 200);
-}    
-    
-    
+}
+
+    function fitHeaderLogo() {
+        const logo = document.getElementById('header-logo');
+        if (!logo) return;
+        if (window.innerWidth >= 768) {
+            logo.style.fontSize = '';
+            return;
+        }
+        logo.style.fontSize = 'clamp(0.55rem, 3.2vw, 1.1rem)';
+        let sizePx = parseFloat(getComputedStyle(logo).fontSize);
+        const minPx = 8;
+        while (logo.scrollWidth > logo.clientWidth && sizePx > minPx) {
+            sizePx -= 0.5;
+            logo.style.fontSize = sizePx + 'px';
+        }
+    }
+    fitHeaderLogo();
+    window.addEventListener('resize', fitHeaderLogo);
 </script>
 </body>
 </html>
