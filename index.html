@@ -378,7 +378,7 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, serverTimestamp, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-    import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, signInAnonymously, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyADdq0ZHWBB8okvyE1r9C17AYVXs7ZvE38",
@@ -397,12 +397,26 @@
     const ADMIN_EMAIL = 'kocvdv38@gmail.com';
     let loginInProgress = false;
 
+    function isLoggedInUser() {
+        const u = auth.currentUser;
+        return !!(u && !u.isAnonymous);
+    }
     function requireLoginForView() {
-        if (auth.currentUser) return true;
+        if (isLoggedInUser()) return true;
         alert('로그인 후 내용을 확인할 수 있습니다.');
         return false;
     }
     window.requireLoginForView = requireLoginForView;
+
+    async function ensureGuestAuth() {
+        if (auth.currentUser) return;
+        try {
+            await signInAnonymously(auth);
+        } catch (e) {
+            console.error('게스트(익명) 로그인 실패:', e);
+            console.warn('Firebase 콘솔에서 익명 로그인을 켜거나 Firestore 규칙에서 posts 읽기를 허용해 주세요.');
+        }
+    }
 
     let allPosts = [];
     let allSubjects = [];
@@ -1090,7 +1104,7 @@
             if (isFaqCategory) {
                 const rawDesc = String(post.description || '');
                 const normalizedDesc = rawDesc.replace(/^\s+/, '');
-                const canViewDetail = !!user;
+                const canViewDetail = isLoggedInUser();
                 const panelText = !canViewDetail
                     ? '<span style="color:#94a3b8;">로그인 후 내용을 확인할 수 있습니다.</span>'
                     : (normalizedDesc.trim()
@@ -1268,6 +1282,10 @@ window.showTextDetail = (id, bundleRootId) => {
     // --- 기타 로직 ---
     document.getElementById('resource-form').onsubmit = async (e) => {
         e.preventDefault();
+        if (!isLoggedInUser()) {
+            alert('등록하려면 로그인해 주세요.');
+            return;
+        }
         const user = auth.currentUser;
         const editId = document.getElementById('edit-id').value;
         const subjects = Array.prototype.map.call(document.querySelectorAll('#form-subject-wrap input[name="form-subject-cb"]:checked'), function (x) { return x.value; }).filter(Boolean);
@@ -1298,9 +1316,20 @@ window.showTextDetail = (id, bundleRootId) => {
         closeModal('form-modal');
     };
 
+    try {
+        await getRedirectResult(auth);
+    } catch (e) {
+        if (e && e.code !== 'auth/no-auth-event') {
+            console.error('redirect login error', e);
+        }
+    }
+    await ensureGuestAuth();
+
     onSnapshot(query(collection(db, "posts"), where('status', '==', 'approved')), (snap) => {
         allPosts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         render();
+    }, (err) => {
+        console.error('posts 로드 실패:', err);
     });
 
     onSnapshot(collection(db, "subjects"), (snap) => {
@@ -1323,11 +1352,12 @@ window.showTextDetail = (id, bundleRootId) => {
     });
 
     onAuthStateChanged(auth, (user) => {
-        const isAdmin = user?.email === ADMIN_EMAIL;
+        const loggedIn = isLoggedInUser();
+        const isAdmin = loggedIn && user?.email === ADMIN_EMAIL;
         document.getElementById('admin-subject-tools').classList.toggle('hidden', !isAdmin);
         document.getElementById('admin-instruction').classList.toggle('hidden', !isAdmin);
-        document.getElementById('user-ui').classList.toggle('hidden', !user);
-        document.getElementById('login-btn').classList.toggle('hidden', !!user);
+        document.getElementById('user-ui').classList.toggle('hidden', !loggedIn);
+        document.getElementById('login-btn').classList.toggle('hidden', loggedIn);
         updateFormCategoryOptions();
         updateAdminListToolUi();
         render();
@@ -1425,15 +1455,11 @@ window.openEditModal = (id) => {
             loginBtn.textContent = prevLabel;
         }
     }
-    try {
-        await getRedirectResult(auth);
-    } catch (e) {
-        if (e && e.code !== 'auth/no-auth-event') {
-            console.error('redirect login error', e);
-        }
-    }
     document.getElementById('login-btn').onclick = handleLogin;
-    document.getElementById('logout-btn').onclick = () => signOut(auth);
+    document.getElementById('logout-btn').onclick = async () => {
+        await signOut(auth);
+        await ensureGuestAuth();
+    };
     document.getElementById('open-submit-btn').onclick = () => { 
         document.getElementById('edit-id').value = ""; 
         document.getElementById('resource-form').reset(); 
