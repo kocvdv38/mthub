@@ -276,6 +276,7 @@
             <button class="filter-btn" data-cat="수업자료">수업자료</button>
             <button class="filter-btn" data-cat="문제해결">문제해결</button>
             <button class="filter-btn" data-cat="안내사항">안내사항</button>
+            <button class="filter-btn" data-cat="공지사항">공지사항</button>
         </div>
         <div class="subject-bar" id="subject-list">
             <span style="font-size:0.8rem; font-weight:bold; color:#64748b;">과목: </span>
@@ -307,16 +308,18 @@
             <label>제목 (메인)</label><input type="text" id="form-title" required>
             <label>카테고리</label>
             <select id="form-category" onchange="toggleMaterialTypeField()">
-                <option>학급운영</option><option>수업자료</option><option>문제해결</option><option>안내사항</option>
+                <option>학급운영</option><option>수업자료</option><option>문제해결</option><option>안내사항</option><option id="form-category-notice" value="공지사항">공지사항</option>
             </select>
             <div id="material-type-wrap" style="display:none;">
                 <div class="form-field-label">수업자료 구분</div>
                 <div id="form-material-type-wrap" aria-label="수업자료 구분 선택"></div>
                 <p style="font-size:12px;color:#64748b;margin:6px 0 0 0;">복수 선택 가능합니다.</p>
             </div>
-            <div id="form-subject-label" class="form-field-label">과목 선택</div>
-            <div id="form-subject-wrap" aria-labelledby="form-subject-label"></div>
-            <p style="font-size:12px;color:#64748b;margin:6px 0 0 0;">복수 선택 가능합니다.</p>
+            <div id="form-subject-section">
+                <div id="form-subject-label" class="form-field-label">과목 선택</div>
+                <div id="form-subject-wrap" aria-labelledby="form-subject-label"></div>
+                <p style="font-size:12px;color:#64748b;margin:6px 0 0 0;">복수 선택 가능합니다.</p>
+            </div>
             <label>링크 (URL)</label><input type="url" id="form-url">
             <label>내용</label><textarea id="form-desc" rows="5"></textarea>
             <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -625,6 +628,19 @@
             wrap.appendChild(empty);
         }
     }
+    function updateFormCategoryOptions() {
+        const opt = document.getElementById('form-category-notice');
+        const sel = document.getElementById('form-category');
+        if (!opt || !sel) return;
+        const isAdmin = auth.currentUser?.email === ADMIN_EMAIL;
+        opt.hidden = !isAdmin;
+        opt.disabled = !isAdmin;
+        if (!isAdmin && sel.value === '공지사항') {
+            sel.value = '학급운영';
+            if (typeof toggleMaterialTypeField === 'function') toggleMaterialTypeField();
+        }
+    }
+
     function updateAdminListToolUi() {
         const input = document.getElementById('new-subject-name');
         if (!input) return;
@@ -778,9 +794,12 @@
     window.toggleMaterialTypeField = () => {
         const catEl = document.getElementById('form-category');
         const wrap = document.getElementById('material-type-wrap');
+        const subjectSection = document.getElementById('form-subject-section');
         if (!catEl || !wrap) return;
-        const on = String(catEl.value || '') === '수업자료';
+        const cat = String(catEl.value || '');
+        const on = cat === '수업자료';
         wrap.style.display = on ? 'block' : 'none';
+        if (subjectSection) subjectSection.style.display = cat === '공지사항' ? 'none' : 'block';
         if (on) {
             renderMaterialTypeCheckboxes(undefined);
             const first = getMaterialTypeOptionsSorted()[0] || 'PPT';
@@ -1213,6 +1232,10 @@ window.showTextDetail = (id, bundleRootId) => {
         const subjects = Array.prototype.map.call(document.querySelectorAll('#form-subject-wrap input[name="form-subject-cb"]:checked'), function (x) { return x.value; }).filter(Boolean);
         const subject = subjects.length ? subjects.join(', ') : '';
         const catVal = document.getElementById('form-category').value;
+        if (catVal === '공지사항' && user.email !== ADMIN_EMAIL) {
+            alert('공지사항은 관리자만 등록할 수 있습니다.');
+            return;
+        }
         const materialTypes = (catVal === '수업자료')
             ? Array.prototype.map.call(document.querySelectorAll('#form-material-type-wrap input[name="form-material-type-cb"]:checked'), function (x) { return x.value; }).filter(Boolean)
             : [];
@@ -1264,6 +1287,7 @@ window.showTextDetail = (id, bundleRootId) => {
         document.getElementById('admin-instruction').classList.toggle('hidden', !isAdmin);
         document.getElementById('user-ui').classList.toggle('hidden', !user);
         document.getElementById('login-btn').classList.toggle('hidden', !!user);
+        updateFormCategoryOptions();
         updateAdminListToolUi();
         render();
     });
@@ -1283,6 +1307,7 @@ window.openEditModal = (id) => {
     }
 
     document.getElementById('form-title').value = post.title;
+    updateFormCategoryOptions();
     document.getElementById('form-category').value = post.category;
     if (typeof toggleMaterialTypeField === 'function') toggleMaterialTypeField();
     renderMaterialTypeCheckboxes(getPostMaterialTypesList(post));
@@ -1371,6 +1396,7 @@ window.openEditModal = (id) => {
     document.getElementById('open-submit-btn').onclick = () => { 
         document.getElementById('edit-id').value = ""; 
         document.getElementById('resource-form').reset(); 
+        updateFormCategoryOptions();
         var _mt0 = getMaterialTypeOptionsSorted();
         renderMaterialTypeCheckboxes(_mt0.length ? [_mt0[0]] : []);
         renderFormSubjectOptions([]);
