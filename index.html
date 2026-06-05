@@ -27,7 +27,7 @@
         header { background: var(--primary); color: white; padding: 0.8rem 0; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .header-nav { display: flex; flex-direction: column; gap: 0.55rem; align-items: stretch; }
         .logo {
-            font-size: clamp(0.55rem, 3.2vw, 1.3rem);
+            font-size: 1.125rem;
             font-weight: bold;
             cursor: pointer;
             white-space: nowrap;
@@ -396,6 +396,13 @@
     provider.setCustomParameters({ prompt: 'select_account' });
     const ADMIN_EMAIL = 'kocvdv38@gmail.com';
     let loginInProgress = false;
+
+    function requireLoginForView() {
+        if (auth.currentUser) return true;
+        alert('로그인 후 내용을 확인할 수 있습니다.');
+        return false;
+    }
+    window.requireLoginForView = requireLoginForView;
 
     let allPosts = [];
     let allSubjects = [];
@@ -890,6 +897,7 @@
             if (!btn || !rootEl.contains(btn)) return;
             e.preventDefault();
             e.stopPropagation();
+            if (!requireLoginForView()) return;
             const u = String(btn.getAttribute('data-open-url') || '').trim();
             if (u) window.open(u, '_blank', 'noopener,noreferrer');
         }, true);
@@ -952,6 +960,7 @@
         });
     }
     window.openBundleAuthorsModal = function (postId) {
+        if (!requireLoginForView()) return;
         const root = allPosts.find(function (p) { return p.id === postId; });
         if (!root) return;
         const kids = allPosts.filter(function (p) { return p.parentId === postId; });
@@ -1033,6 +1042,7 @@
                     e.preventDefault();
                     e.stopPropagation();
                 }
+                if (!requireLoginForView()) return;
                 const open = !card.classList.contains('faq-open');
                 card.classList.toggle('faq-open', open);
                 trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -1080,10 +1090,13 @@
             if (isFaqCategory) {
                 const rawDesc = String(post.description || '');
                 const normalizedDesc = rawDesc.replace(/^\s+/, '');
-                const panelText = normalizedDesc.trim()
-                    ? escapeHtmlUi(normalizedDesc)
-                    : '<span style="color:#94a3b8;">등록된 상세 내용이 없습니다.</span>';
-                const showBodyBtn = normalizedDesc.trim().length > 0;
+                const canViewDetail = !!user;
+                const panelText = !canViewDetail
+                    ? '<span style="color:#94a3b8;">로그인 후 내용을 확인할 수 있습니다.</span>'
+                    : (normalizedDesc.trim()
+                        ? escapeHtmlUi(normalizedDesc)
+                        : '<span style="color:#94a3b8;">등록된 상세 내용이 없습니다.</span>');
+                const showBodyBtn = canViewDetail && normalizedDesc.trim().length > 0;
                 card.innerHTML = `
                 <div class="card-content">
                     <span style="font-size:0.7rem; color:var(--accent); font-weight:bold;">#${post.category === '행사자료' ? '안내사항' : post.category}${post.category === '수업자료' ? ' · ' + (getPostSubjectsList(post).join(', ') || '공통') + ' | ' + (getPostMaterialTypesList(post).join(', ') || '기타') : ' | ' + (getPostSubjectsList(post).join(', ') || '공통')}</span>
@@ -1163,6 +1176,7 @@ window.syncGroupModalFooter = syncGroupModalFooter;
 
 // --- 카드 클릭 시 (상세 보기 또는 묶음 열기) ---
 window.handleCardClick = (id) => {
+    if (!requireLoginForView()) return;
     const isAdmin = auth.currentUser?.email === ADMIN_EMAIL;
     // 1. 클릭한 카드(부모) 데이터 찾기 (이 줄이 누락되어 에러가 났었습니다)
     const post = allPosts.find(p => p.id === id);
@@ -1228,6 +1242,7 @@ window.handleCardClick = (id) => {
 };
 // 텍스트 상세 내용을 보여주기 위한 보조 함수 (bundleRootId 있으면 하단 버튼이 묶음 목록 복귀)
 window.showTextDetail = (id, bundleRootId) => {
+    if (!requireLoginForView()) return;
     const post = allPosts.find(p => p.id === id);
     const list = document.getElementById('group-items-list');
     const rawDesc = String((post && post.description) || "");
@@ -1283,7 +1298,7 @@ window.showTextDetail = (id, bundleRootId) => {
         closeModal('form-modal');
     };
 
-    onSnapshot(collection(db, "posts"), (snap) => {
+    onSnapshot(query(collection(db, "posts"), where('status', '==', 'approved')), (snap) => {
         allPosts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         render();
     });
@@ -1491,10 +1506,11 @@ async function handleSubDrop(e) {
             logo.style.fontSize = '';
             return;
         }
-        logo.style.fontSize = 'clamp(0.55rem, 3.2vw, 1.1rem)';
-        let sizePx = parseFloat(getComputedStyle(logo).fontSize);
-        const minPx = 8;
-        while (logo.scrollWidth > logo.clientWidth && sizePx > minPx) {
+        const maxPx = 18;
+        const minPx = 11;
+        let sizePx = maxPx;
+        logo.style.fontSize = maxPx + 'px';
+        while (logo.scrollWidth > logo.clientWidth + 1 && sizePx > minPx) {
             sizePx -= 0.5;
             logo.style.fontSize = sizePx + 'px';
         }
